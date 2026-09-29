@@ -1,0 +1,212 @@
+@page
+@model LoginModel
+
+@{
+    ViewData["Title"] = "Sign In";
+}
+
+<style>
+    .auth-page {
+        min-height: 85vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 15px;
+        background: #f4f7fb;
+    }
+
+    .auth-card {
+        width: 100%;
+        max-width: 460px;
+        background: white;
+        border-radius: 18px;
+        padding: 42px;
+        box-shadow: 0 12px 45px rgba(15, 35, 70, 0.08);
+        border: 1px solid #e8edf5;
+    }
+
+    .auth-logo {
+        width: 60px;
+        height: 60px;
+        background: #eaf1ff;
+        color: #2457d6;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        font-weight: 800;
+        margin: 0 auto 20px;
+    }
+
+    .auth-heading {
+        text-align: center;
+        font-size: 30px;
+        font-weight: 750;
+        color: #14213d;
+        margin-bottom: 8px;
+    }
+
+    .auth-subtitle {
+        text-align: center;
+        color: #778198;
+        font-size: 14px;
+        margin-bottom: 30px;
+    }
+
+    .auth-label {
+        font-size: 14px;
+        font-weight: 600;
+        color: #34415b;
+        margin-bottom: 8px;
+    }
+
+    .auth-input {
+        width: 100%;
+        padding: 13px 14px;
+        border: 1px solid #dce3ee;
+        border-radius: 9px;
+        font-size: 14px;
+        background: #fbfcfe;
+        transition: all 0.2s;
+    }
+
+        .auth-input:focus {
+            outline: none;
+            border-color: #3867e8;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(56, 103, 232, 0.12);
+        }
+
+    .auth-btn {
+        width: 100%;
+        padding: 13px;
+        border: none;
+        border-radius: 9px;
+        background: #2457d6;
+        color: white;
+        font-size: 16px;
+        font-weight: 650;
+        margin-top: 18px;
+        transition: 0.2s;
+    }
+
+        .auth-btn:hover {
+            background: #1946b8;
+            transform: translateY(-1px);
+        }
+
+    .auth-link {
+        color: #2457d6;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 14px;
+    }
+
+        .auth-link:hover {
+            text-decoration: underline;
+        }
+
+    .auth-footer {
+        text-align: center;
+        color: #778198;
+        font-size: 14px;
+        margin-top: 25px;
+    }
+
+    .field-error {
+        color: #dc3545;
+        font-size: 13px;
+    }
+
+    @@media (max-width: 576px) {
+        .auth-card {
+            padding: 30px 22px;
+        }
+    }
+</style>
+
+<div class="auth-page">
+    <div class="auth-card">
+
+        <div class="auth-logo">I</div>
+
+        <h1 class="auth-heading">Welcome back</h1>
+        <p class="auth-subtitle">
+            Sign in to manage your assets and rentals.
+        </p>
+
+        <form id="account" method="post">
+
+            <div asp-validation-summary="ModelOnly"
+                 class="field-error mb-3" role="alert">
+            </div>
+
+            <div class="mb-4">
+                <label asp-for="Input.Email"
+                       class="auth-label">Email Address</label>
+
+                <input asp-for="Input.Email"
+                       class="auth-input"
+                       autocomplete="username"
+                       placeholder="you@example.com" />
+
+                <span asp-validation-for="Input.Email"
+                      class="field-error"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Input.Password"
+                       class="auth-label">Password</label>
+
+                <input asp-for="Input.Password"
+                       class="auth-input"
+                       autocomplete="current-password"
+                       placeholder="Enter your password" />
+
+                <span asp-validation-for="Input.Password"
+                      class="field-error"></span>
+            </div>
+
+            <div class="d-flex justify-content-between
+                align-items-center mt-3">
+
+                <div class="form-check">
+                    <input asp-for="Input.RememberMe"
+                           class="form-check-input" />
+
+                    <label asp-for="Input.RememberMe"
+                           class="form-check-label"
+                           style="font-size:14px;color:#64708a">
+                    </label>
+                </div>
+
+                <a asp-page="./ForgotPassword"
+                   class="auth-link">
+                    Forgot password?
+                </a>
+
+            </div>
+
+            <button id="login-submit"
+                    type="submit"
+                    class="auth-btn">
+                Sign In →
+            </button>
+
+        </form>
+
+        <div class="auth-footer">
+            Don't have an account?
+            <a asp-page="./Register"
+               class="auth-link">
+                Create account
+            </a>
+        </div>
+
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

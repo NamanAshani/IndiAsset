@@ -1,0 +1,241 @@
+@page
+@model RegisterModel
+
+@{
+    ViewData["Title"] = "Create Account";
+}
+
+<style>
+    .auth-page {
+        min-height: 85vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 15px;
+        background: #f4f7fb;
+    }
+
+    .auth-card {
+        width: 100%;
+        max-width: 540px;
+        background: white;
+        border-radius: 18px;
+        padding: 40px;
+        box-shadow: 0 12px 45px rgba(15, 35, 70, 0.08);
+        border: 1px solid #e8edf5;
+    }
+
+    .auth-logo {
+        width: 58px;
+        height: 58px;
+        background: #eaf1ff;
+        color: #2457d6;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 27px;
+        font-weight: 800;
+        margin: 0 auto 18px;
+    }
+
+    .auth-heading {
+        text-align: center;
+        font-size: 29px;
+        font-weight: 750;
+        color: #14213d;
+        margin-bottom: 8px;
+    }
+
+    .auth-subtitle {
+        text-align: center;
+        color: #778198;
+        margin-bottom: 28px;
+        font-size: 14px;
+    }
+
+    .auth-label {
+        font-weight: 600;
+        font-size: 14px;
+        color: #34415b;
+        margin-bottom: 7px;
+    }
+
+    .auth-input {
+        width: 100%;
+        padding: 12px 14px;
+        border: 1px solid #dce3ee;
+        border-radius: 9px;
+        font-size: 14px;
+        background: #fbfcfe;
+        transition: all 0.2s;
+    }
+
+        .auth-input:focus {
+            outline: none;
+            border-color: #3867e8;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(56, 103, 232, 0.12);
+        }
+
+    .auth-btn {
+        width: 100%;
+        padding: 13px;
+        border: none;
+        border-radius: 9px;
+        background: #2457d6;
+        color: white;
+        font-weight: 650;
+        font-size: 16px;
+        margin-top: 10px;
+        transition: 0.2s;
+    }
+
+        .auth-btn:hover {
+            background: #1946b8;
+            transform: translateY(-1px);
+        }
+
+    .auth-footer {
+        text-align: center;
+        margin-top: 24px;
+        color: #778198;
+        font-size: 14px;
+    }
+
+        .auth-footer a {
+            color: #2457d6;
+            font-weight: 650;
+            text-decoration: none;
+        }
+
+            .auth-footer a:hover {
+                text-decoration: underline;
+            }
+
+    .field-error {
+        font-size: 13px;
+        color: #dc3545;
+    }
+
+    @@media (max-width: 576px) {
+        .auth-card {
+            padding: 28px 22px;
+        }
+    }
+</style>
+
+<div class="auth-page">
+    <div class="auth-card">
+
+        <div class="auth-logo">I</div>
+
+        <h1 class="auth-heading">Create your account</h1>
+        <p class="auth-subtitle">
+            Join IndiAsset and start renting or listing assets.
+        </p>
+
+        <form id="registerForm" asp-route-returnUrl="@Model.ReturnUrl"
+              method="post">
+
+            <div asp-validation-summary="ModelOnly"
+                 class="field-error mb-3" role="alert">
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Input.FullName"
+                       class="auth-label">Full Name</label>
+                <input asp-for="Input.FullName"
+                       class="auth-input"
+                       placeholder="Enter your full name" />
+                <span asp-validation-for="Input.FullName"
+                      class="field-error"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Input.Email"
+                       class="auth-label">Email Address</label>
+                <input asp-for="Input.Email"
+                       class="auth-input"
+                       autocomplete="username"
+                       placeholder="you@example.com" />
+                <span asp-validation-for="Input.Email"
+                      class="field-error"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Input.PhoneNumber"
+                       class="auth-label">Phone Number</label>
+                <input asp-for="Input.PhoneNumber"
+                       class="auth-input"
+                       placeholder="Enter your phone number" />
+                <span asp-validation-for="Input.PhoneNumber"
+                      class="field-error"></span>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label asp-for="Input.City"
+                           class="auth-label">City</label>
+                    <input asp-for="Input.City"
+                           class="auth-input"
+                           placeholder="Your city" />
+                    <span asp-validation-for="Input.City"
+                          class="field-error"></span>
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label asp-for="Input.Address"
+                           class="auth-label">Address</label>
+                    <input asp-for="Input.Address"
+                           class="auth-input"
+                           placeholder="Your address" />
+                    <span asp-validation-for="Input.Address"
+                          class="field-error"></span>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Input.Password"
+                       class="auth-label">Password</label>
+                <input asp-for="Input.Password"
+                       class="auth-input"
+                       autocomplete="new-password"
+                       placeholder="Create a password" />
+                <span asp-validation-for="Input.Password"
+                      class="field-error"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Input.ConfirmPassword"
+                       class="auth-label">Confirm Password</label>
+                <input asp-for="Input.ConfirmPassword"
+                       class="auth-input"
+                       autocomplete="new-password"
+                       placeholder="Re-enter your password" />
+                <span asp-validation-for="Input.ConfirmPassword"
+                      class="field-error"></span>
+            </div>
+
+            <button id="registerSubmit"
+                    type="submit"
+                    class="auth-btn">
+                Create Account →
+            </button>
+
+        </form>
+
+        <div class="auth-footer">
+            Already have an account?
+            <a asp-page="./Login"
+               asp-route-returnUrl="@Model.ReturnUrl">
+                Sign in
+            </a>
+        </div>
+
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -1,8 +1,471 @@
 ﻿@{
-    ViewData["Title"] = "Home Page";
+    ViewData["Title"] = "Home";
+    Layout = "_Layout";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-</div>
+@section Styles {
+    <style>
+        /* ---------- Hero ---------- */
+        .hero {
+            padding: 5rem 0 4rem;
+            background: linear-gradient(145deg, #ffffff 0%, #f1f7fe 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+            .hero:after {
+                content: '';
+                position: absolute;
+                top: -20%;
+                right: -10%;
+                width: 500px;
+                height: 500px;
+                background: radial-gradient(circle, rgba(37, 99, 235, 0.05) 0%, transparent 70%);
+                border-radius: 50%;
+                z-index: 0;
+            }
+
+            .hero h1 {
+                font-size: 3.8rem;
+                font-weight: 700;
+                line-height: 1.2;
+                letter-spacing: -1px;
+                color: #0b2b4a;
+            }
+
+                .hero h1 span {
+                    color: #2563eb;
+                }
+
+            .hero p {
+                font-size: 1.2rem;
+                color: #334155;
+                max-width: 550px;
+                margin-bottom: 2rem;
+            }
+
+        .hero-img {
+            background: white;
+            border-radius: 28px;
+            box-shadow: 0 30px 50px -20px rgba(0, 0, 0, 0.15);
+            padding: 1.5rem;
+            transform: rotate(1deg);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+        }
+
+        .asset-icon-group {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            margin-top: 2rem;
+        }
+
+            .asset-icon-group .badge-icon {
+                background: white;
+                padding: 0.8rem 1.2rem;
+                border-radius: 60px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+                border: 1px solid #e2e8f0;
+                font-weight: 500;
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                color: #1e293b;
+                font-size: 0.95rem;
+                transition: all 0.2s;
+            }
+
+                .asset-icon-group .badge-icon i {
+                    color: #2563eb;
+                    font-size: 1.1rem;
+                }
+
+                .asset-icon-group .badge-icon:hover {
+                    border-color: #2563eb;
+                    background: #f8fafc;
+                    transform: translateY(-2px);
+                }
+
+        /* ---------- Sections ---------- */
+        .section-title {
+            font-weight: 700;
+            font-size: 2.5rem;
+            letter-spacing: -0.5px;
+            color: #0b2b4a;
+        }
+
+        .section-subtitle {
+            color: #475569;
+            font-size: 1.1rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* ---------- Feature cards ---------- */
+        .feature-card {
+            background: white;
+            padding: 2rem 1.5rem;
+            border-radius: 24px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.02);
+            border: 1px solid #eef2f6;
+            transition: all 0.25s;
+            height: 100%;
+        }
+
+            .feature-card:hover {
+                transform: translateY(-6px);
+                box-shadow: 0 20px 40px -12px rgba(37, 99, 235, 0.15);
+                border-color: #dbeafe;
+            }
+
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+            background: #eff6ff;
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+            color: #2563eb;
+            font-size: 1.8rem;
+        }
+
+        .feature-card h5 {
+            font-weight: 700;
+            font-size: 1.3rem;
+            margin-bottom: 0.75rem;
+            color: #0b2b4a;
+        }
+
+        .feature-card p {
+            color: #475569;
+            font-size: 0.98rem;
+            line-height: 1.6;
+            margin-bottom: 0;
+        }
+
+        /* ---------- How it works ---------- */
+        .step-number {
+            width: 48px;
+            height: 48px;
+            background: #2563eb;
+            color: white;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.3rem;
+            flex-shrink: 0;
+        }
+
+        /* ---------- Chat bubble ---------- */
+        .chat-bubble {
+            background: #0b2b4a;
+            color: white;
+            padding: 1.5rem;
+            border-radius: 24px 24px 24px 8px;
+            max-width: 400px;
+            box-shadow: 0 20px 30px -12px rgba(0, 0, 0, 0.2);
+        }
+
+            .chat-bubble .message {
+                background: rgba(255, 255, 255, 0.1);
+                padding: 0.75rem 1rem;
+                border-radius: 16px;
+                margin-bottom: 0.5rem;
+                font-size: 0.95rem;
+            }
+
+                .chat-bubble .message.me {
+                    background: #2563eb;
+                    margin-left: 2rem;
+                    border-radius: 16px 16px 4px 16px;
+                }
+
+        .payment-badge {
+            background: white;
+            padding: 0.75rem 1.25rem;
+            border-radius: 40px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            color: #0b2b4a;
+            border: 1px solid #e2e8f0;
+        }
+
+            .payment-badge i {
+                color: #22c55e;
+                font-size: 1.2rem;
+            }
+
+        /* ---------- CTA ---------- */
+        .cta-section {
+            background: #0b2b4a;
+            border-radius: 40px;
+            padding: 4rem 2rem;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+            .cta-section:before {
+                content: '';
+                position: absolute;
+                top: -50%;
+                left: -10%;
+                width: 300px;
+                height: 300px;
+                background: radial-gradient(circle, rgba(37, 99, 235, 0.3) 0%, transparent 70%);
+                border-radius: 50%;
+            }
+
+            .cta-section h2 {
+                font-weight: 700;
+                font-size: 2.5rem;
+                letter-spacing: -0.5px;
+            }
+
+        .btn-light-custom {
+            background: white;
+            color: #0b2b4a;
+            font-weight: 600;
+            padding: 0.8rem 2rem;
+            border-radius: 40px;
+            border: none;
+            transition: all 0.2s;
+        }
+
+            .btn-light-custom:hover {
+                background: #f1f5f9;
+                transform: scale(1.02);
+                color: #0b2b4a;
+            }
+
+        .btn-outline-light-custom {
+            background: transparent;
+            border: 1.5px solid rgba(255, 255, 255, 0.4);
+            color: white;
+            font-weight: 600;
+            padding: 0.8rem 2rem;
+            border-radius: 40px;
+            transition: all 0.2s;
+        }
+
+            .btn-outline-light-custom:hover {
+                background: rgba(255, 255, 255, 0.1);
+                border-color: white;
+                color: white;
+            }
+
+        @@media(max-width: 768px) {
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .hero {
+                padding: 3rem 0;
+            }
+
+            .section-title {
+                font-size: 2rem;
+            }
+
+            .cta-section h2 {
+                font-size: 1.8rem;
+            }
+        }
+    </style>
+}
+
+<!-- ========== HERO ========== -->
+<section class="hero">
+    <div class="container position-relative" style="z-index: 1;">
+        <div class="row align-items-center g-5">
+            <div class="col-lg-6">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span class="badge bg-light text-dark px-3 py-2 rounded-pill fw-medium" style="border:1px solid #e2e8f0;">
+                        <i class="fas fa-check-circle text-success me-1"></i> Trusted by 500+ companies
+                    </span>
+                </div>
+                <h1>
+                    Lease <span>big assets</span><br>
+                    without the headache
+                </h1>
+                <p class="mt-3">
+                    IndiAsset connects companies needing cameras, cranes, and machines with trusted owners.
+                    Chat, negotiate, and pay — all in one place.
+                </p>
+                <div class="d-flex flex-wrap gap-3 mb-4">
+                    <a href="#" class="btn btn-primary-custom btn-lg">
+                        <i class="fas fa-search me-2"></i> Find assets
+                    </a>
+                    <a href="#" class="btn btn-outline-custom btn-lg">
+                        <i class="fas fa-plus-circle me-2"></i> List your asset
+                    </a>
+                </div>
+                <div class="asset-icon-group">
+                    <span class="badge-icon"><i class="fas fa-camera"></i> Cameras</span>
+                    <span class="badge-icon"><i class="fas fa-truck"></i> Cranes</span>
+                    <span class="badge-icon"><i class="fas fa-industry"></i> Machines</span>
+                    <span class="badge-icon"><i class="fas fa-tools"></i> Construction</span>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="hero-img text-center">
+                    <div class="p-4">
+                        <div class="d-flex justify-content-center gap-4 mb-4">
+                            <div class="text-center">
+                                <div class="bg-primary bg-opacity-10 p-4 rounded-4 mb-2 d-inline-block">
+                                    <i class="fas fa-camera fa-2x" style="color:#2563eb;"></i>
+                                </div>
+                                <p class="fw-semibold mb-0">Cameras</p>
+                            </div>
+                            <div class="text-center">
+                                <div class="bg-primary bg-opacity-10 p-4 rounded-4 mb-2 d-inline-block">
+                                    <i class="fas fa-truck fa-2x" style="color:#2563eb;"></i>
+                                </div>
+                                <p class="fw-semibold mb-0">Cranes</p>
+                            </div>
+                            <div class="text-center">
+                                <div class="bg-primary bg-opacity-10 p-4 rounded-4 mb-2 d-inline-block">
+                                    <i class="fas fa-cogs fa-2x" style="color:#2563eb;"></i>
+                                </div>
+                                <p class="fw-semibold mb-0">Machines</p>
+                            </div>
+                        </div>
+                        <div class="bg-light p-3 rounded-4 mt-3 d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="fas fa-comments text-primary"></i>
+                                <span class="fw-medium">24/7 chat support</span>
+                            </div>
+                            <i class="fas fa-arrow-right text-secondary"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ========== FEATURES ========== -->
+<section class="py-5 mt-4">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="section-title">Everything you need to lease</h2>
+            <p class="section-subtitle">Built for companies that need heavy equipment — with real-time chat and secure payments.</p>
+        </div>
+        <div class="row g-4">
+            <div class="col-md-6 col-lg-3">
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-handshake"></i></div>
+                    <h5>Connect directly</h5>
+                    <p>We link asset owners with businesses that need them — no middlemen, no delays.</p>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-3">
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-comment-dots"></i></div>
+                    <h5>Chat support</h5>
+                    <p>Negotiate terms, ask questions, and share documents via our built-in secure chat.</p>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-3">
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-credit-card"></i></div>
+                    <h5>Payment support</h5>
+                    <p>Integrated payments with escrow-like protection. Pay per day, week, or month.</p>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-3">
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-shield-alt"></i></div>
+                    <h5>Verified assets</h5>
+                    <p>Every owner and asset goes through a basic verification for your peace of mind.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ========== HOW IT WORKS ========== -->
+<section class="py-5 bg-white">
+    <div class="container">
+        <div class="row align-items-center g-5">
+            <div class="col-lg-5">
+                <h2 class="section-title mb-3" style="font-size: 2.2rem;">How IndiAsset works</h2>
+                <p class="text-secondary mb-4">Simple steps to get the equipment you need, or earn from your idle assets.</p>
+
+                <div class="d-flex gap-3 mb-4">
+                    <div class="step-number">1</div>
+                    <div>
+                        <h6 class="fw-bold mb-1">Search or list</h6>
+                        <p class="text-secondary small mb-0">Find cameras, cranes, machines — or list your own asset in minutes.</p>
+                    </div>
+                </div>
+                <div class="d-flex gap-3 mb-4">
+                    <div class="step-number">2</div>
+                    <div>
+                        <h6 class="fw-bold mb-1">Chat &amp; agree</h6>
+                        <p class="text-secondary small mb-0">Use our chat to discuss availability, price, and terms securely.</p>
+                    </div>
+                </div>
+                <div class="d-flex gap-3">
+                    <div class="step-number">3</div>
+                    <div>
+                        <h6 class="fw-bold mb-1">Pay &amp; receive</h6>
+                        <p class="text-secondary small mb-0">Make payment through the platform and coordinate delivery/rental.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-7">
+                <div class="d-flex flex-wrap justify-content-center gap-4">
+                    <div class="chat-bubble">
+                        <div class="d-flex align-items-center gap-2 mb-3">
+                            <i class="fas fa-circle text-success" style="font-size: 0.6rem;"></i>
+                            <span class="fw-semibold">Owner: Rajesh Cranes</span>
+                        </div>
+                        <div class="message">Hi, the crane is available from Monday. Daily rate is ₹18,000.</div>
+                        <div class="message me">Great! We need it for 5 days. Can you include operator?</div>
+                        <div class="message">Yes, operator included. Total ₹90,000 + GST.</div>
+                        <div class="message me">Perfect. Sending payment now.</div>
+                        <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top border-secondary">
+                            <small>Payment protection</small>
+                            <i class="fas fa-lock text-warning"></i>
+                        </div>
+                    </div>
+                    <div class="d-flex flex-column gap-3 justify-content-center">
+                        <div class="payment-badge"><i class="fas fa-check-circle"></i> Payment secured</div>
+                        <div class="payment-badge"><i class="fas fa-clock"></i> 5 day rental</div>
+                        <div class="payment-badge"><i class="fas fa-file-invoice"></i> Invoice generated</div>
+                        <div class="bg-light p-3 rounded-4 text-center mt-2">
+                            <i class="fas fa-arrow-right text-primary me-1"></i>
+                            <span class="fw-semibold">Funds released after delivery</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ========== CTA ========== -->
+<section class="py-5">
+    <div class="container">
+        <div class="cta-section text-center">
+            <h2 class="mb-3">Ready to lease smarter?</h2>
+            <p class="mb-4 mx-auto" style="max-width: 600px; opacity: 0.9;">Join hundreds of companies already using IndiAsset for their equipment needs.</p>
+            <div class="d-flex flex-wrap justify-content-center gap-3">
+                <a href="#" class="btn-light-custom">Get started — it's free</a>
+                <a href="#" class="btn-outline-light-custom">Talk to sales</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+    <!-- Add any page-specific JS here if needed -->
+}
