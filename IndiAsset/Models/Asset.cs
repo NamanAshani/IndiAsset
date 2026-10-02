@@ -1,10 +1,9 @@
-
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
-using System.Text.Json;
 
 namespace IndiAsset.Models
 {
+    [BsonIgnoreExtraElements]
     public class Asset
     {
         [BsonId]
@@ -17,7 +16,7 @@ namespace IndiAsset.Models
         public string Title { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
 
-        // Examples: Electronics, Vehicles, Machinery
+        // Examples: Machinery, Construction, Vehicles, Electronics, Agriculture, Event & Audio
         public string Category { get; set; } = string.Empty;
 
         // Rent per day
@@ -27,6 +26,8 @@ namespace IndiAsset.Models
         [BsonRepresentation(BsonType.Decimal128)]
         public decimal SecurityDeposit { get; set; }
 
+        public string? City { get; set; }
+        public string? State { get; set; }
 
         public List<AssetImage> Images { get; set; } = new();
 
@@ -35,7 +36,7 @@ namespace IndiAsset.Models
         public List<AssetSpecification> Specifications { get; set; } = new();
 
         public bool IsAvailable { get; set; } = true;
-        public bool IsApproved { get; set; } = false;
+        public bool IsApproved { get; set; } = true;
         public bool IsDeleted { get; set; } = false;
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

@@ -1,10 +1,20 @@
 @page
 @model LockoutModel
 @{
-    ViewData["Title"] = "Locked out";
+    ViewData["Title"] = "Locked Out";
 }
 
-<header>
-    <h1 class="text-danger">@ViewData["Title"]</h1>
-    <p class="text-danger">This account has been locked out, please try again later.</p>
-</header>
+<div class="container py-5">
+    <div class="card p-5 rounded-4 border-0 mx-auto text-center" style="max-width: 540px; background: #1a1d27; border: 1px solid rgba(255, 255, 255, 0.08) !important;">
+        <div class="d-inline-flex p-3 rounded-circle bg-warning bg-opacity-10 border border-warning border-opacity-25 mx-auto mb-3">
+            <i class="fas fa-lock fa-2x text-warning"></i>
+        </div>
+        <h2 class="fw-bold text-white mb-2">Account Temporarily Locked</h2>
+        <p class="text-muted mb-4">This account has been temporarily locked out due to multiple failed login attempts. Please try again later.</p>
+        <div>
+            <a asp-controller="Home" asp-action="Index" class="btn btn-primary-custom px-4">
+                <i class="fas fa-home me-1"></i> Return Home
+            </a>
+        </div>
+    </div>
+</div>

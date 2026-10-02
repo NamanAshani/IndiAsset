@@ -1,0 +1,189 @@
+@model IndiAsset.Models.AssetCreateEditViewModel
+@{
+    ViewData["Title"] = "List Your Asset — IndiAsset";
+}
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="p-4 mb-4 rounded-4 text-white" style="background: linear-gradient(135deg, #1a1d2e 0%, #1e3a5f 100%); border: 1px solid rgba(255,255,255,0.06);">
+                <span class="badge bg-warning text-dark px-3 py-1 rounded-pill mb-2 fw-semibold">
+                    Monetize Equipment
+                </span>
+                <h2 class="fw-bold mb-1">List New Commercial or Industrial Asset</h2>
+                <p class="mb-0 text-light text-opacity-75">
+                    Connect with verified contractors and businesses seeking machinery, cameras, and equipment on lease.
+                </p>
+            </div>
+
+            <div class="card rounded-4 p-4 p-md-5">
+                <form method="post" asp-action="Create" enctype="multipart/form-data">
+                    @Html.AntiForgeryToken()
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger rounded-3 mb-4"></div>
+
+                    <h5 class="fw-bold mb-3" style="color:#f1f5f9;">Asset Information</h5>
+
+                    <div class="mb-3">
+                        <label asp-for="Title" class="form-label fw-semibold">Asset Title *</label>
+                        <input asp-for="Title" class="form-control rounded-3" placeholder="e.g. Caterpillar 320D Excavator 20 Ton" required />
+                        <span asp-validation-for="Title" class="text-danger small"></span>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label asp-for="Category" class="form-label fw-semibold">Category *</label>
+                            <select asp-for="Category" id="categorySelect" class="form-select rounded-3" required onchange="handleCategoryChange()">
+                                <option value="">Select Category</option>
+                                <option value="Construction & Earthmoving">Construction & Earthmoving</option>
+                                <option value="Heavy Machinery">Heavy Machinery</option>
+                                <option value="Cinema & Media">Cinema & Media</option>
+                                <option value="Agriculture Equipment">Agriculture Equipment</option>
+                                <option value="Power & Energy">Power & Energy</option>
+                                <option value="Transportation & Logistics">Transportation & Logistics</option>
+                                <option value="Industrial Tools">Industrial Tools</option>
+                                <option value="Other">Other (Enter Custom Category)</option>
+                            </select>
+                            <span asp-validation-for="Category" class="text-danger small"></span>
+                            <div id="customCategoryContainer" class="mt-2 @(Model.Category == "Other" ? "" : "d-none")">
+                                <label asp-for="CustomCategory" class="form-label small fw-semibold text-primary">Specify Custom Category *</label>
+                                <input asp-for="CustomCategory" id="customCategoryInput" class="form-control rounded-3 border-primary" placeholder="e.g. Drone & Robotics, Scaffolding, Medical Equipment" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="City" class="form-label fw-semibold">City Location *</label>
+                            <input asp-for="City" class="form-control rounded-3" placeholder="e.g. Mumbai, Bengaluru, Delhi" required />
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Description" class="form-label fw-semibold">Description & Condition *</label>
+                        <textarea asp-for="Description" class="form-control rounded-3" rows="4" placeholder="Detail specifications, service history, operator availability..." required></textarea>
+                    </div>
+
+                    <hr class="my-4 border-secondary" />
+
+                    <h5 class="fw-bold mb-3" style="color:#f1f5f9;">Pricing & Escrow Deposit</h5>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label asp-for="DailyRent" class="form-label fw-semibold">Daily Rent (per day) *</label>
+                            <div class="input-group">
+                                <span class="input-group-text">₹</span>
+                                <input asp-for="DailyRent" type="number" step="100" min="100" class="form-control" placeholder="3500" required />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="SecurityDeposit" class="form-label fw-semibold">Refundable Security Deposit *</label>
+                            <div class="input-group">
+                                <span class="input-group-text">₹</span>
+                                <input asp-for="SecurityDeposit" type="number" step="500" min="0" class="form-control" placeholder="15000" required />
+                            </div>
+                            <span class="text-muted small">Held safely in escrow until return inspection.</span>
+                        </div>
+                    </div>
+
+                    <hr class="my-4 border-secondary" />
+
+                    <h5 class="fw-bold mb-3" style="color:#f1f5f9;">Upload Asset Photos</h5>
+
+                    <div class="p-4 rounded-4 text-center mb-3" style="border: 2px dashed rgba(255,255,255,0.15); background: #1e2130;">
+                        <i class="fa-solid fa-images fa-3x text-primary mb-2 opacity-75"></i>
+                        <h6 class="fw-bold mb-1" style="color:#e2e8f0;">Select photos from your device</h6>
+                        <p class="small text-muted mb-3">Upload multiple clear images (JPG, PNG, WEBP). Max 25MB each.</p>
+                        <input asp-for="UploadedImages" type="file" multiple accept="image/*" class="form-control w-auto d-inline-block rounded-pill px-4" id="photoFileInput" onchange="previewSelectedPhotos(event)" />
+                        <div id="uploadPreviewGrid" class="row row-cols-2 row-cols-sm-3 row-cols-md-4 g-2 mt-3 d-none"></div>
+                    </div>
+
+                    <div class="mb-3">
+                        <a class="small text-muted text-decoration-none" data-bs-toggle="collapse" href="#urlInputCollapse" role="button">
+                            Or enter photo web URLs instead (optional)
+                        </a>
+                        <div class="collapse mt-2" id="urlInputCollapse">
+                            <textarea asp-for="ImageUrls" class="form-control rounded-3" rows="2" placeholder="https://example.com/asset-1.jpg"></textarea>
+                        </div>
+                    </div>
+
+                    <hr class="my-4 border-secondary" />
+
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <h5 class="fw-bold mb-0" style="color:#f1f5f9;">Technical Specifications</h5>
+                        <button type="button" class="btn btn-sm btn-outline-primary rounded-pill" onclick="addSpecRow()">
+                            Add Specification
+                        </button>
+                    </div>
+
+                    <div id="specsContainer" class="mb-3">
+                        <div class="row g-2 mb-2 spec-row">
+                            <div class="col-5">
+                                <input type="text" name="Specifications[0].Key" class="form-control form-control-sm rounded-3" placeholder="Feature (e.g. Max Load, Engine)" />
+                            </div>
+                            <div class="col-6">
+                                <input type="text" name="Specifications[0].Value" class="form-control form-control-sm rounded-3" placeholder="Value (e.g. 5 Ton, 76 HP Diesel)" />
+                            </div>
+                            <div class="col-1 text-center">
+                                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeSpecRow(this)"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-4 border-secondary" />
+
+                    <div class="form-check form-switch mb-4">
+                        <input asp-for="IsAvailable" class="form-check-input" type="checkbox" id="availSwitch" checked />
+                        <label class="form-check-label fw-semibold" style="color:#e2e8f0;" for="availSwitch">
+                            Make Available for Immediate Leasing on Marketplace
+                        </label>
+                        <small class="d-block text-muted">You can pause or reactivate your listing anytime from your Owner Dashboard.</small>
+                    </div>
+
+                    <div class="d-flex gap-3">
+                        <button type="submit" class="btn btn-primary rounded-pill px-4 py-2 fw-semibold shadow-sm flex-grow-1">
+                            Publish Asset Listing
+                        </button>
+                        <a asp-action="Index" class="btn btn-outline-secondary rounded-pill px-4 py-2">
+                            Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function handleCategoryChange() {
+        const select = document.getElementById('categorySelect');
+        const customContainer = document.getElementById('customCategoryContainer');
+        if (select.value === 'Other') { customContainer.classList.remove('d-none'); } else { customContainer.classList.add('d-none'); }
+    }
+    function previewSelectedPhotos(event) {
+        const files = event.target.files;
+        const grid = document.getElementById('uploadPreviewGrid');
+        grid.innerHTML = '';
+        if (files && files.length > 0) {
+            grid.classList.remove('d-none');
+            Array.from(files).forEach((file, index) => {
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const col = document.createElement('div');
+                        col.className = 'col position-relative';
+                        col.innerHTML = `<div class="rounded-3 overflow-hidden border shadow-sm" style="height:100px;border-color:rgba(255,255,255,0.1)!important;"><img src="${e.target.result}" class="w-100 h-100 object-fit-cover" /></div>`;
+                        grid.appendChild(col);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        } else { grid.classList.add('d-none'); }
+    }
+    let specIndex = 1;
+    function addSpecRow() {
+        const container = document.getElementById('specsContainer');
+        const row = document.createElement('div');
+        row.className = 'row g-2 mb-2 spec-row';
+        row.innerHTML = `<div class="col-5"><input type="text" name="Specifications[${specIndex}].Key" class="form-control form-control-sm rounded-3" placeholder="Feature" /></div><div class="col-6"><input type="text" name="Specifications[${specIndex}].Value" class="form-control form-control-sm rounded-3" placeholder="Value" /></div><div class="col-1 text-center"><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeSpecRow(this)"><i class="fa-solid fa-trash"></i></button></div>`;
+        container.appendChild(row);
+        specIndex++;
+    }
+    function removeSpecRow(btn) { btn.closest('.spec-row')?.remove(); }
+</script>

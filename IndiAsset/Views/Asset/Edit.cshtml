@@ -1,0 +1,230 @@
+@model IndiAsset.Models.AssetCreateEditViewModel
+@{
+    ViewData["Title"] = $"Edit Asset — {Model.Title}";
+}
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card rounded-4 p-4 p-md-5">
+                <div class="d-flex align-items-center justify-content-between mb-4">
+                    <h2 class="fw-bold mb-0" style="color:#f1f5f9;">Edit Asset Listing</h2>
+                    <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                        Back to Listing
+                    </a>
+                </div>
+
+                <form method="post" asp-action="Edit" enctype="multipart/form-data">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" asp-for="Id" />
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger rounded-3 mb-4"></div>
+
+                    <div class="mb-3">
+                        <label asp-for="Title" class="form-label fw-semibold">Asset Title *</label>
+                        <input asp-for="Title" class="form-control rounded-3" required />
+                        <span asp-validation-for="Title" class="text-danger small"></span>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label asp-for="Category" class="form-label fw-semibold">Category *</label>
+                            <select asp-for="Category" id="categorySelect" class="form-select rounded-3" required onchange="handleCategoryChange()">
+                                <option value="Construction & Earthmoving">Construction & Earthmoving</option>
+                                <option value="Heavy Machinery">Heavy Machinery</option>
+                                <option value="Cinema & Media">Cinema & Media</option>
+                                <option value="Agriculture Equipment">Agriculture Equipment</option>
+                                <option value="Power & Energy">Power & Energy</option>
+                                <option value="Transportation & Logistics">Transportation & Logistics</option>
+                                <option value="Industrial Tools">Industrial Tools</option>
+                                <option value="Other">Other (Enter Custom Category)</option>
+                            </select>
+                            <span asp-validation-for="Category" class="text-danger small"></span>
+
+                            <div id="customCategoryContainer" class="mt-2 @(Model.Category == "Other" ? "" : "d-none")">
+                                <label asp-for="CustomCategory" class="form-label small fw-semibold text-primary">
+                                    Specify Custom Category *
+                                </label>
+                                <input asp-for="CustomCategory" id="customCategoryInput" class="form-control rounded-3 border-primary shadow-sm" placeholder="e.g. Drone & Robotics, Scaffolding" />
+                                <span asp-validation-for="CustomCategory" class="text-danger small"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="City" class="form-label fw-semibold">City Location *</label>
+                            <input asp-for="City" class="form-control rounded-3" required />
+                            <span asp-validation-for="City" class="text-danger small"></span>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Description" class="form-label fw-semibold">Description & Condition *</label>
+                        <textarea asp-for="Description" class="form-control rounded-3" rows="4" required></textarea>
+                        <span asp-validation-for="Description" class="text-danger small"></span>
+                    </div>
+
+                    <hr class="my-4 border-secondary" />
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label asp-for="DailyRent" class="form-label fw-semibold">Daily Rent (₹/day) *</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-muted">₹</span>
+                                <input asp-for="DailyRent" type="number" step="100" min="100" class="form-control" required />
+                            </div>
+                            <span asp-validation-for="DailyRent" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="SecurityDeposit" class="form-label fw-semibold">Refundable Security Deposit (₹) *</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-muted">₹</span>
+                                <input asp-for="SecurityDeposit" type="number" step="500" min="0" class="form-control" required />
+                            </div>
+                            <span asp-validation-for="SecurityDeposit" class="text-danger small"></span>
+                        </div>
+                    </div>
+
+                    <hr class="my-4 border-secondary" />
+
+                    <h5 class="fw-bold mb-3" style="color:#f1f5f9;">Asset Photos</h5>
+
+                    @if (Model.ExistingImageUrls != null && Model.ExistingImageUrls.Any())
+                    {
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold text-muted">Current Photos</label>
+                            <div class="d-flex flex-wrap gap-2">
+                                @foreach (var url in Model.ExistingImageUrls)
+                                {
+                                    <div class="position-relative border rounded-3 overflow-hidden shadow-sm" style="width: 90px; height: 90px; border-color: rgba(255,255,255,0.1)!important;">
+                                        <img src="@url" class="w-100 h-100 object-fit-cover" alt="Asset photo" />
+                                        <input type="hidden" name="ExistingImageUrls" value="@url" />
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    <div class="p-3 rounded-4 text-center mb-3" style="border: 2px dashed rgba(255,255,255,0.15); background: #1e2130;">
+                        <i class="fa-solid fa-cloud-arrow-up fa-2x text-primary mb-2 opacity-75"></i>
+                        <h6 class="fw-bold mb-1" style="color:#e2e8f0;">Upload Additional Photos</h6>
+                        <input asp-for="UploadedImages" type="file" multiple accept="image/*" class="form-control w-auto d-inline-block rounded-pill px-4 mt-1" onchange="previewSelectedPhotos(event)" />
+                        <div id="uploadPreviewGrid" class="row row-cols-3 row-cols-md-4 g-2 mt-2 d-none"></div>
+                    </div>
+
+                    <hr class="my-4 border-secondary" />
+
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <h5 class="fw-bold mb-0" style="color:#f1f5f9;">Technical Specifications</h5>
+                        <button type="button" class="btn btn-sm btn-outline-primary rounded-pill" onclick="addSpecRow()">
+                            Add Specification
+                        </button>
+                    </div>
+
+                    <div id="specsContainer" class="mb-3">
+                        @if (Model.Specifications != null && Model.Specifications.Any())
+                        {
+                            for (int i = 0; i < Model.Specifications.Count; i++)
+                            {
+                                <div class="row g-2 mb-2 spec-row">
+                                    <div class="col-5">
+                                        <input type="text" name="Specifications[@i].Key" value="@Model.Specifications[i].Key" class="form-control form-control-sm rounded-3" placeholder="Key" />
+                                    </div>
+                                    <div class="col-6">
+                                        <input type="text" name="Specifications[@i].Value" value="@Model.Specifications[i].Value" class="form-control form-control-sm rounded-3" placeholder="Value" />
+                                    </div>
+                                    <div class="col-1 text-center">
+                                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeSpecRow(this)"><i class="fa-solid fa-trash"></i></button>
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+
+                    <hr class="my-4 border-secondary" />
+
+                    <div class="form-check form-switch mb-4">
+                        <input asp-for="IsAvailable" class="form-check-input" type="checkbox" id="availSwitch" />
+                        <label class="form-check-label fw-semibold" style="color:#e2e8f0;" for="availSwitch">
+                            Listing is Active & Discoverable on Marketplace
+                        </label>
+                    </div>
+
+                    <div class="d-flex gap-3">
+                        <button type="submit" class="btn btn-primary rounded-pill px-4 py-2.5 fw-semibold shadow-sm flex-grow-1">
+                            Save Changes
+                        </button>
+                        <a asp-action="MyAssets" class="btn btn-outline-secondary rounded-pill px-4 py-2.5">
+                            Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function handleCategoryChange() {
+        const select = document.getElementById('categorySelect');
+        const customContainer = document.getElementById('customCategoryContainer');
+        const customInput = document.getElementById('customCategoryInput');
+
+        if (select.value === 'Other') {
+            customContainer.classList.remove('d-none');
+            customInput.focus();
+        } else {
+            customContainer.classList.add('d-none');
+        }
+    }
+
+    function previewSelectedPhotos(event) {
+        const files = event.target.files;
+        const grid = document.getElementById('uploadPreviewGrid');
+        grid.innerHTML = '';
+
+        if (files && files.length > 0) {
+            grid.classList.remove('d-none');
+            Array.from(files).forEach((file, index) => {
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const col = document.createElement('div');
+                        col.className = 'col position-relative';
+                        col.innerHTML = `
+                            <div class="rounded-3 overflow-hidden border shadow-sm position-relative" style="height: 80px; border-color: rgba(255,255,255,0.1)!important;">
+                                <img src="${e.target.result}" class="w-100 h-100 object-fit-cover" alt="Preview ${index + 1}" />
+                            </div>
+                        `;
+                        grid.appendChild(col);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        } else {
+            grid.classList.add('d-none');
+        }
+    }
+
+    let specIndex = @((Model.Specifications?.Count ?? 0) + 1);
+    function addSpecRow() {
+        const container = document.getElementById('specsContainer');
+        const row = document.createElement('div');
+        row.className = 'row g-2 mb-2 spec-row';
+        row.innerHTML = `
+            <div class="col-5">
+                <input type="text" name="Specifications[${specIndex}].Key" class="form-control form-control-sm rounded-3" placeholder="Key" />
+            </div>
+            <div class="col-6">
+                <input type="text" name="Specifications[${specIndex}].Value" class="form-control form-control-sm rounded-3" placeholder="Value" />
+            </div>
+            <div class="col-1 text-center">
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeSpecRow(this)"><i class="fa-solid fa-trash"></i></button>
+            </div>
+        `;
+        container.appendChild(row);
+        specIndex++;
+    }
+
+    function removeSpecRow(btn) {
+        const row = btn.closest('.spec-row');
+        if (row) row.remove();
+    }
+</script>

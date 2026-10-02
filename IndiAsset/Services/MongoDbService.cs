@@ -1,4 +1,4 @@
-﻿
+
 using MongoDB.Driver;
 using IndiAsset.Models;
 
@@ -23,7 +23,12 @@ namespace IndiAsset.Services
                     "MongoDB configuration is missing.");
             }
 
-            var client = new MongoClient(connectionString);
+            var settings = MongoClientSettings.FromConnectionString(connectionString);
+            settings.SslSettings = new SslSettings
+            {
+                EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13
+            };
+            var client = new MongoClient(settings);
 
             _database = client.GetDatabase(databaseName);
         }

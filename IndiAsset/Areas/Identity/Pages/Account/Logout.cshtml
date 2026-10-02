@@ -1,21 +1,28 @@
 @page
 @model LogoutModel
 @{
-    ViewData["Title"] = "Log out";
+    ViewData["Title"] = "Log Out";
 }
 
-<header>
-    <h1>@ViewData["Title"]</h1>
-    @{
-        if (User.Identity?.IsAuthenticated ?? false)
-        {
-            <form class="form-inline" asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Page("/", new { area = "" })" method="post">
-                <button type="submit" class="nav-link btn btn-link text-dark">Click here to Logout</button>
-            </form>
+<div class="container py-5">
+    <div class="card p-5 rounded-4 border-0 mx-auto text-center" style="max-width: 500px; background: #1a1d27; border: 1px solid rgba(255, 255, 255, 0.08) !important;">
+        <div class="d-inline-flex p-3 rounded-circle bg-primary bg-opacity-10 border border-primary border-opacity-25 mx-auto mb-3">
+            <i class="fas fa-sign-out-alt fa-2x" style="color: #60a5fa;"></i>
+        </div>
+        <h2 class="fw-bold text-white mb-2">Signed Out</h2>
+        @{
+            if (User.Identity?.IsAuthenticated ?? false)
+            {
+                <p class="text-muted mb-4">Are you sure you want to log out of your session?</p>
+                <form class="form-inline" asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Page("/", new { area = "" })" method="post">
+                    <button type="submit" class="btn btn-primary-custom px-4">Confirm Logout</button>
+                </form>
+            }
+            else
+            {
+                <p class="text-muted mb-4">You have successfully signed out of IndiAsset.</p>
+                <a asp-controller="Home" asp-action="Index" class="btn btn-primary-custom px-4">Return Home</a>
+            }
         }
-        else
-        {
-            <p>You have successfully logged out of the application.</p>
-        }
-    }
-</header>
+    </div>
+</div>

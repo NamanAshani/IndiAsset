@@ -11,10 +11,10 @@
             min-height: 600px;
             max-height: 850px;
             margin: 20px auto;
-            background: #ffffff;
+            background: #1a1d27;
             border-radius: 20px;
             box-shadow: 0 10px 40px rgba(11, 43, 74, 0.08);
-            border: 1px solid #e2e8f0;
+            border: 1px solid rgba(255,255,255,0.1);
             overflow: hidden;
             display: flex;
             position: relative;
@@ -23,15 +23,15 @@
         /* ----- Left Sidebar ----- */
         .chat-sidebar {
             width: 360px;
-            border-right: 1px solid #edf2f7;
+            border-right: 1px solid rgba(255,255,255,0.06);
             display: flex;
             flex-direction: column;
-            background: #ffffff;
+            background: #1a1d27;
         }
 
         .chat-sidebar-header {
             padding: 20px 24px;
-            border-bottom: 1px solid #edf2f7;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -41,28 +41,28 @@
             font-size: 1.25rem;
             font-weight: 700;
             margin: 0;
-            color: #0b2b4a;
+            color: #f1f5f9;
         }
 
         .chat-search-box {
             padding: 12px 20px;
-            border-bottom: 1px solid #edf2f7;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
         }
 
         .chat-search-input {
             width: 100%;
             padding: 9px 16px 9px 38px;
-            border: 1px solid #e2e8f0;
+            border: 1px solid rgba(255,255,255,0.1);
             border-radius: 30px;
             font-size: 0.88rem;
-            background: #f8fafc;
+            background: #1e2130;
             outline: none;
             transition: all 0.2s;
         }
 
         .chat-search-input:focus {
             border-color: #2563eb;
-            background: #ffffff;
+            background: #1a1d27;
             box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
         }
 
@@ -101,12 +101,12 @@
         }
 
         .conversation-item:hover {
-            background: #f1f5f9;
+            background: #252838;
         }
 
         .conversation-item.active {
-            background: #eff6ff;
-            border: 1px solid #dbeafe;
+            background: rgba(37, 99, 235, 0.18);
+            border: 1px solid rgba(59, 130, 246, 0.35);
         }
 
         .user-avatar {
@@ -161,7 +161,7 @@
         .conversation-name {
             font-weight: 600;
             font-size: 0.95rem;
-            color: #0b2b4a;
+            color: #f1f5f9;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -174,7 +174,7 @@
 
         .conversation-preview {
             font-size: 0.83rem;
-            color: #64748b;
+            color: #94a3b8;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -196,13 +196,13 @@
             flex: 1;
             display: flex;
             flex-direction: column;
-            background: #f8fafc;
+            background: #1e2130;
         }
 
         .chat-main-header {
             padding: 16px 24px;
-            background: #ffffff;
-            border-bottom: 1px solid #edf2f7;
+            background: #1a1d27;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -217,12 +217,12 @@
             margin: 0;
             font-size: 1.05rem;
             font-weight: 700;
-            color: #0b2b4a;
+            color: #f1f5f9;
         }
 
         .chat-header-info span {
             font-size: 0.8rem;
-            color: #64748b;
+            color: #94a3b8;
             font-weight: 500;
         }
 
@@ -292,10 +292,10 @@
         }
 
         .message-bubble-wrapper.received .message-bubble {
-            background: #ffffff;
-            color: #1e293b;
+            background: #1a1d27;
+            color: #e2e8f0;
             border-bottom-left-radius: 4px;
-            border: 1px solid #e2e8f0;
+            border: 1px solid rgba(255,255,255,0.1);
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
         }
 
@@ -318,8 +318,8 @@
 
         .chat-input-bar {
             padding: 16px 24px;
-            background: #ffffff;
-            border-top: 1px solid #edf2f7;
+            background: #1a1d27;
+            border-top: 1px solid rgba(255,255,255,0.06);
             display: flex;
             align-items: center;
             gap: 12px;
@@ -328,17 +328,17 @@
         .chat-input-field {
             flex: 1;
             padding: 12px 20px;
-            border: 1px solid #e2e8f0;
+            border: 1px solid rgba(255,255,255,0.1);
             border-radius: 30px;
             outline: none;
             font-size: 0.92rem;
-            background: #f8fafc;
+            background: #1e2130;
             transition: all 0.2s;
         }
 
         .chat-input-field:focus {
             border-color: #2563eb;
-            background: #ffffff;
+            background: #1a1d27;
             box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
         }
 
@@ -370,14 +370,15 @@
             justify-content: center;
             text-align: center;
             padding: 40px;
-            color: #64748b;
+            color: #94a3b8;
         }
 
         .empty-chat-icon {
             width: 80px;
             height: 80px;
-            background: #eff6ff;
-            color: #2563eb;
+            background: rgba(37, 99, 235, 0.15);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: #60a5fa;
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -390,11 +391,12 @@
             position: absolute;
             top: 20px;
             right: 20px;
-            background: #0f172a;
+            background: #1e2130;
             color: #ffffff;
             padding: 12px 20px;
             border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
             z-index: 1050;
             display: flex;
             align-items: center;
@@ -413,9 +415,9 @@
             border-radius: 12px;
             font-weight: 600;
         }
-        .connection-status-pill.connected { background: #dcfce7; color: #15803d; }
-        .connection-status-pill.connecting { background: #fef9c3; color: #a16207; }
-        .connection-status-pill.error { background: #fee2e2; color: #b91c1c; }
+        .connection-status-pill.connected { background: rgba(34, 197, 94, 0.2); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.3); }
+        .connection-status-pill.connecting { background: rgba(234, 179, 8, 0.2); color: #fde047; border: 1px solid rgba(234, 179, 8, 0.3); }
+        .connection-status-pill.error { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); }
 
         @@media (max-width: 768px) {
             .chat-app-container {
@@ -531,7 +533,7 @@
                         </div>
                     </div>
                     <div>
-                        <span class="badge bg-light text-dark border px-3 py-2">
+                        <span class="badge bg-secondary bg-opacity-25 text-white border px-3 py-2">
                             <i class="fas fa-shield-alt text-primary me-1"></i> Verified Lease Chat
                         </span>
                     </div>
@@ -588,7 +590,7 @@
                     <div class="empty-chat-icon">
                         <i class="fas fa-comments"></i>
                     </div>
-                    <h3 class="fw-bold text-dark">Welcome to IndiAsset Chat</h3>
+                    <h3 class="fw-bold text-white">Welcome to IndiAsset Chat</h3>
                     <p class="text-muted" style="max-width: 420px;">
                         Connect directly with asset owners, lessors, and renters. Inquire about equipment, rates, contracts, or logistics in real-time.
                     </p>
@@ -628,7 +630,7 @@
                                         @initial
                                     </div>
                                     <div class="flex-grow-1">
-                                        <div class="fw-bold text-dark">@name</div>
+                                        <div class="fw-bold text-white">@name</div>
                                         <div class="small text-muted">@user.Email @(!string.IsNullOrEmpty(user.City) ? $"• {user.City}" : "")</div>
                                     </div>
                                     <span class="btn btn-sm btn-outline-custom">Chat <i class="fas fa-arrow-right ms-1"></i></span>

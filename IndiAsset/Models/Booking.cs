@@ -1,9 +1,9 @@
-
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
 namespace IndiAsset.Models
 {
+    [BsonIgnoreExtraElements]
     public class Booking
     {
         [BsonId]
@@ -22,8 +22,20 @@ namespace IndiAsset.Models
         [BsonRepresentation(BsonType.Decimal128)]
         public decimal DailyRent { get; set; }
 
-        public BookingStatus Status { get; set; }
-            = BookingStatus.Pending;
+        [BsonRepresentation(BsonType.Decimal128)]
+        public decimal TotalRent { get; set; }
+
+        [BsonRepresentation(BsonType.Decimal128)]
+        public decimal SecurityDeposit { get; set; }
+
+        [BsonRepresentation(BsonType.Decimal128)]
+        public decimal TotalAmount { get; set; }
+
+        public BookingStatus Status { get; set; } = BookingStatus.Pending;
+
+        public string? Notes { get; set; }
+        public string? AssetTitle { get; set; }
+        public string? AssetImageUrl { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

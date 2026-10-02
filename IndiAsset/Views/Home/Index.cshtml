@@ -1,4 +1,4 @@
-﻿@{
+@{
     ViewData["Title"] = "Home";
     Layout = "_Layout";
 }
@@ -8,94 +8,87 @@
         /* ---------- Hero ---------- */
         .hero {
             padding: 5rem 0 4rem;
-            background: linear-gradient(145deg, #ffffff 0%, #f1f7fe 100%);
+            background: radial-gradient(circle at 80% 20%, rgba(37, 99, 235, 0.12) 0%, rgba(15, 17, 23, 1) 70%);
             position: relative;
             overflow: hidden;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
 
-            .hero:after {
-                content: '';
-                position: absolute;
-                top: -20%;
-                right: -10%;
-                width: 500px;
-                height: 500px;
-                background: radial-gradient(circle, rgba(37, 99, 235, 0.05) 0%, transparent 70%);
-                border-radius: 50%;
-                z-index: 0;
-            }
+        .hero h1 {
+            font-size: 3.8rem;
+            font-weight: 700;
+            line-height: 1.2;
+            letter-spacing: -1px;
+            color: #f8fafc;
+        }
 
-            .hero h1 {
-                font-size: 3.8rem;
-                font-weight: 700;
-                line-height: 1.2;
-                letter-spacing: -1px;
-                color: #0b2b4a;
-            }
+        .hero h1 span {
+            color: #60a5fa;
+            background: linear-gradient(135deg, #60a5fa, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
 
-                .hero h1 span {
-                    color: #2563eb;
-                }
-
-            .hero p {
-                font-size: 1.2rem;
-                color: #334155;
-                max-width: 550px;
-                margin-bottom: 2rem;
-            }
+        .hero p {
+            font-size: 1.2rem;
+            color: #94a3b8;
+            max-width: 550px;
+            margin-bottom: 2rem;
+        }
 
         .hero-img {
-            background: white;
+            background: #1a1d27;
             border-radius: 28px;
-            box-shadow: 0 30px 50px -20px rgba(0, 0, 0, 0.15);
+            box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.6);
             padding: 1.5rem;
-            transform: rotate(1deg);
-            border: 1px solid rgba(255, 255, 255, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(10px);
         }
 
         .asset-icon-group {
             display: flex;
-            gap: 1.5rem;
+            gap: 1rem;
             flex-wrap: wrap;
             margin-top: 2rem;
         }
 
-            .asset-icon-group .badge-icon {
-                background: white;
-                padding: 0.8rem 1.2rem;
-                border-radius: 60px;
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
-                border: 1px solid #e2e8f0;
-                font-weight: 500;
-                display: inline-flex;
-                align-items: center;
-                gap: 8px;
-                color: #1e293b;
-                font-size: 0.95rem;
-                transition: all 0.2s;
-            }
+        .asset-icon-group .badge-icon {
+            background: #1e2130;
+            padding: 0.8rem 1.3rem;
+            border-radius: 60px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: #e2e8f0;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+        }
 
-                .asset-icon-group .badge-icon i {
-                    color: #2563eb;
-                    font-size: 1.1rem;
-                }
+        .asset-icon-group .badge-icon i {
+            color: #60a5fa;
+            font-size: 1.1rem;
+        }
 
-                .asset-icon-group .badge-icon:hover {
-                    border-color: #2563eb;
-                    background: #f8fafc;
-                    transform: translateY(-2px);
-                }
+        .asset-icon-group .badge-icon:hover {
+            border-color: #3b82f6;
+            background: #252a3d;
+            transform: translateY(-2px);
+            color: #ffffff;
+        }
 
         /* ---------- Sections ---------- */
         .section-title {
             font-weight: 700;
             font-size: 2.5rem;
             letter-spacing: -0.5px;
-            color: #0b2b4a;
+            color: #f8fafc;
         }
 
         .section-subtitle {
-            color: #475569;
+            color: #94a3b8;
             font-size: 1.1rem;
             max-width: 600px;
             margin: 0 auto;
@@ -103,44 +96,46 @@
 
         /* ---------- Feature cards ---------- */
         .feature-card {
-            background: white;
-            padding: 2rem 1.5rem;
+            background: #1a1d27;
+            padding: 2.2rem 1.8rem;
             border-radius: 24px;
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.02);
-            border: 1px solid #eef2f6;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.07);
             transition: all 0.25s;
             height: 100%;
         }
 
-            .feature-card:hover {
-                transform: translateY(-6px);
-                box-shadow: 0 20px 40px -12px rgba(37, 99, 235, 0.15);
-                border-color: #dbeafe;
-            }
+        .feature-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 20px 40px -12px rgba(37, 99, 235, 0.3);
+            border-color: rgba(96, 165, 250, 0.4);
+            background: #1e2230;
+        }
 
         .feature-icon {
             width: 60px;
             height: 60px;
-            background: #eff6ff;
+            background: rgba(37, 99, 235, 0.15);
+            border: 1px solid rgba(59, 130, 246, 0.25);
             border-radius: 18px;
             display: flex;
             align-items: center;
             justify-content: center;
             margin-bottom: 1.5rem;
-            color: #2563eb;
+            color: #60a5fa;
             font-size: 1.8rem;
         }
 
         .feature-card h5 {
             font-weight: 700;
-            font-size: 1.3rem;
+            font-size: 1.25rem;
             margin-bottom: 0.75rem;
-            color: #0b2b4a;
+            color: #f1f5f9;
         }
 
         .feature-card p {
-            color: #475569;
-            font-size: 0.98rem;
+            color: #94a3b8;
+            font-size: 0.95rem;
             line-height: 1.6;
             margin-bottom: 0;
         }
@@ -158,108 +153,118 @@
             font-weight: 700;
             font-size: 1.3rem;
             flex-shrink: 0;
+            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
         }
 
-        /* ---------- Chat bubble ---------- */
+        /* ---------- Chat bubble preview ---------- */
         .chat-bubble {
-            background: #0b2b4a;
+            background: #1e2130;
             color: white;
             padding: 1.5rem;
             border-radius: 24px 24px 24px 8px;
-            max-width: 400px;
-            box-shadow: 0 20px 30px -12px rgba(0, 0, 0, 0.2);
+            max-width: 420px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
         }
 
-            .chat-bubble .message {
-                background: rgba(255, 255, 255, 0.1);
-                padding: 0.75rem 1rem;
-                border-radius: 16px;
-                margin-bottom: 0.5rem;
-                font-size: 0.95rem;
-            }
+        .chat-bubble .message {
+            background: #252836;
+            color: #e2e8f0;
+            padding: 0.75rem 1rem;
+            border-radius: 16px;
+            margin-bottom: 0.5rem;
+            font-size: 0.95rem;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
 
-                .chat-bubble .message.me {
-                    background: #2563eb;
-                    margin-left: 2rem;
-                    border-radius: 16px 16px 4px 16px;
-                }
+        .chat-bubble .message.me {
+            background: #2563eb;
+            color: #ffffff;
+            margin-left: 2rem;
+            border-radius: 16px 16px 4px 16px;
+            border: none;
+        }
 
         .payment-badge {
-            background: white;
+            background: #1a1d27;
             padding: 0.75rem 1.25rem;
             border-radius: 40px;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
             display: inline-flex;
             align-items: center;
             gap: 10px;
             font-weight: 600;
-            color: #0b2b4a;
-            border: 1px solid #e2e8f0;
+            color: #f1f5f9;
+            border: 1px solid rgba(255, 255, 255, 0.08);
         }
 
-            .payment-badge i {
-                color: #22c55e;
-                font-size: 1.2rem;
-            }
+        .payment-badge i {
+            color: #4ade80;
+            font-size: 1.2rem;
+        }
 
         /* ---------- CTA ---------- */
         .cta-section {
-            background: #0b2b4a;
-            border-radius: 40px;
-            padding: 4rem 2rem;
+            background: linear-gradient(135deg, #1e2235 0%, #151824 100%);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 36px;
+            padding: 4.5rem 2rem;
             color: white;
             position: relative;
             overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
         }
 
-            .cta-section:before {
-                content: '';
-                position: absolute;
-                top: -50%;
-                left: -10%;
-                width: 300px;
-                height: 300px;
-                background: radial-gradient(circle, rgba(37, 99, 235, 0.3) 0%, transparent 70%);
-                border-radius: 50%;
-            }
+        .cta-section:before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -10%;
+            width: 350px;
+            height: 350px;
+            background: radial-gradient(circle, rgba(37, 99, 235, 0.25) 0%, transparent 70%);
+            border-radius: 50%;
+        }
 
-            .cta-section h2 {
-                font-weight: 700;
-                font-size: 2.5rem;
-                letter-spacing: -0.5px;
-            }
+        .cta-section h2 {
+            font-weight: 700;
+            font-size: 2.6rem;
+            letter-spacing: -0.5px;
+            color: #f8fafc;
+        }
 
         .btn-light-custom {
-            background: white;
-            color: #0b2b4a;
+            background: #2563eb;
+            color: #ffffff;
             font-weight: 600;
-            padding: 0.8rem 2rem;
+            padding: 0.8rem 2.2rem;
             border-radius: 40px;
             border: none;
             transition: all 0.2s;
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
         }
 
-            .btn-light-custom:hover {
-                background: #f1f5f9;
-                transform: scale(1.02);
-                color: #0b2b4a;
-            }
+        .btn-light-custom:hover {
+            background: #3b82f6;
+            transform: translateY(-2px);
+            color: #ffffff;
+        }
 
         .btn-outline-light-custom {
             background: transparent;
-            border: 1.5px solid rgba(255, 255, 255, 0.4);
-            color: white;
+            border: 1.5px solid rgba(255, 255, 255, 0.25);
+            color: #f1f5f9;
             font-weight: 600;
-            padding: 0.8rem 2rem;
+            padding: 0.8rem 2.2rem;
             border-radius: 40px;
             transition: all 0.2s;
         }
 
-            .btn-outline-light-custom:hover {
-                background: rgba(255, 255, 255, 0.1);
-                border-color: white;
-                color: white;
-            }
+        .btn-outline-light-custom:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.5);
+            color: #ffffff;
+        }
 
         @@media(max-width: 768px) {
             .hero h1 {
@@ -287,24 +292,24 @@
         <div class="row align-items-center g-5">
             <div class="col-lg-6">
                 <div class="d-flex align-items-center gap-2 mb-3">
-                    <span class="badge bg-light text-dark px-3 py-2 rounded-pill fw-medium" style="border:1px solid #e2e8f0;">
-                        <i class="fas fa-check-circle text-success me-1"></i> Trusted by 500+ companies
+                    <span class="badge bg-secondary bg-opacity-25 text-white px-3 py-2 rounded-pill fw-medium border border-secondary border-opacity-25">
+                        <i class="fas fa-check-circle text-success me-1"></i> Trusted by 500+ businesses
                     </span>
                 </div>
                 <h1>
-                    Lease <span>big assets</span><br>
-                    without the headache
+                    Lease <span>Equipment &amp; Assets</span><br>
+                    with Ease
                 </h1>
                 <p class="mt-3">
-                    IndiAsset connects companies needing cameras, cranes, and machines with trusted owners.
-                    Chat, negotiate, and pay — all in one place.
+                    IndiAsset connects contractors and companies needing cameras, cranes, machinery, and equipment with verified owners.
+                    Inquire, chat, contract, and track availability in real-time.
                 </p>
                 <div class="d-flex flex-wrap gap-3 mb-4">
-                    <a href="#" class="btn btn-primary-custom btn-lg">
-                        <i class="fas fa-search me-2"></i> Find assets
+                    <a asp-controller="Asset" asp-action="Index" class="btn btn-primary-custom btn-lg">
+                        <i class="fas fa-search me-2"></i> Browse Assets
                     </a>
-                    <a href="#" class="btn btn-outline-custom btn-lg">
-                        <i class="fas fa-plus-circle me-2"></i> List your asset
+                    <a asp-controller="Asset" asp-action="Create" class="btn btn-outline-custom btn-lg">
+                        <i class="fas fa-plus me-2"></i> List Your Asset
                     </a>
                 </div>
                 <div class="asset-icon-group">
@@ -316,33 +321,33 @@
             </div>
             <div class="col-lg-6">
                 <div class="hero-img text-center">
-                    <div class="p-4">
+                    <div class="p-3">
                         <div class="d-flex justify-content-center gap-4 mb-4">
                             <div class="text-center">
-                                <div class="bg-primary bg-opacity-10 p-4 rounded-4 mb-2 d-inline-block">
-                                    <i class="fas fa-camera fa-2x" style="color:#2563eb;"></i>
+                                <div class="bg-primary bg-opacity-10 p-4 rounded-4 mb-2 d-inline-block border border-primary border-opacity-25">
+                                    <i class="fas fa-camera fa-2x" style="color:#60a5fa;"></i>
                                 </div>
-                                <p class="fw-semibold mb-0">Cameras</p>
+                                <p class="fw-semibold text-white mb-0">Cameras</p>
                             </div>
                             <div class="text-center">
-                                <div class="bg-primary bg-opacity-10 p-4 rounded-4 mb-2 d-inline-block">
-                                    <i class="fas fa-truck fa-2x" style="color:#2563eb;"></i>
+                                <div class="bg-primary bg-opacity-10 p-4 rounded-4 mb-2 d-inline-block border border-primary border-opacity-25">
+                                    <i class="fas fa-truck fa-2x" style="color:#60a5fa;"></i>
                                 </div>
-                                <p class="fw-semibold mb-0">Cranes</p>
+                                <p class="fw-semibold text-white mb-0">Cranes</p>
                             </div>
                             <div class="text-center">
-                                <div class="bg-primary bg-opacity-10 p-4 rounded-4 mb-2 d-inline-block">
-                                    <i class="fas fa-cogs fa-2x" style="color:#2563eb;"></i>
+                                <div class="bg-primary bg-opacity-10 p-4 rounded-4 mb-2 d-inline-block border border-primary border-opacity-25">
+                                    <i class="fas fa-cogs fa-2x" style="color:#60a5fa;"></i>
                                 </div>
-                                <p class="fw-semibold mb-0">Machines</p>
+                                <p class="fw-semibold text-white mb-0">Machines</p>
                             </div>
                         </div>
-                        <div class="bg-light p-3 rounded-4 mt-3 d-flex align-items-center justify-content-between">
+                        <div class="bg-dark p-3 rounded-4 mt-3 d-flex align-items-center justify-content-between border border-secondary border-opacity-25">
                             <div class="d-flex align-items-center gap-2">
                                 <i class="fas fa-comments text-primary"></i>
-                                <span class="fw-medium">24/7 chat support</span>
+                                <span class="fw-medium text-white">Direct Owner Inquiries</span>
                             </div>
-                            <i class="fas fa-arrow-right text-secondary"></i>
+                            <i class="fas fa-arrow-right text-muted"></i>
                         </div>
                     </div>
                 </div>
@@ -356,35 +361,35 @@
     <div class="container">
         <div class="text-center mb-5">
             <h2 class="section-title">Everything you need to lease</h2>
-            <p class="section-subtitle">Built for companies that need heavy equipment — with real-time chat and secure payments.</p>
+            <p class="section-subtitle">Engineered for businesses needing industrial, production, and commercial equipment with zero friction.</p>
         </div>
         <div class="row g-4">
             <div class="col-md-6 col-lg-3">
                 <div class="feature-card">
                     <div class="feature-icon"><i class="fas fa-handshake"></i></div>
-                    <h5>Connect directly</h5>
-                    <p>We link asset owners with businesses that need them — no middlemen, no delays.</p>
+                    <h5>Direct Leasing</h5>
+                    <p>Connect straight with asset owners and managers without brokers or hidden markups.</p>
                 </div>
             </div>
             <div class="col-md-6 col-lg-3">
                 <div class="feature-card">
-                    <div class="feature-icon"><i class="fas fa-comment-dots"></i></div>
-                    <h5>Chat support</h5>
-                    <p>Negotiate terms, ask questions, and share documents via our built-in secure chat.</p>
+                    <div class="feature-icon"><i class="fas fa-calendar-check"></i></div>
+                    <h5>Real-time Availability</h5>
+                    <p>Engine tracks ongoing leases automatically so you always know when equipment is ready.</p>
                 </div>
             </div>
             <div class="col-md-6 col-lg-3">
                 <div class="feature-card">
-                    <div class="feature-icon"><i class="fas fa-credit-card"></i></div>
-                    <h5>Payment support</h5>
-                    <p>Integrated payments with escrow-like protection. Pay per day, week, or month.</p>
+                    <div class="feature-icon"><i class="fas fa-comments"></i></div>
+                    <h5>Built-in Chat</h5>
+                    <p>Negotiate lease timelines, delivery arrangements, and terms securely with instant messaging.</p>
                 </div>
             </div>
             <div class="col-md-6 col-lg-3">
                 <div class="feature-card">
                     <div class="feature-icon"><i class="fas fa-shield-alt"></i></div>
-                    <h5>Verified assets</h5>
-                    <p>Every owner and asset goes through a basic verification for your peace of mind.</p>
+                    <h5>Verified Listings</h5>
+                    <p>Accurate specifications, transparent daily/monthly rates, and verified equipment details.</p>
                 </div>
             </div>
         </div>
@@ -392,32 +397,32 @@
 </section>
 
 <!-- ========== HOW IT WORKS ========== -->
-<section class="py-5 bg-white">
+<section class="py-5" id="how-it-works">
     <div class="container">
         <div class="row align-items-center g-5">
             <div class="col-lg-5">
                 <h2 class="section-title mb-3" style="font-size: 2.2rem;">How IndiAsset works</h2>
-                <p class="text-secondary mb-4">Simple steps to get the equipment you need, or earn from your idle assets.</p>
+                <p class="text-muted mb-4">A simple three-step workflow to get equipment on your job site or earn income from idle assets.</p>
 
                 <div class="d-flex gap-3 mb-4">
                     <div class="step-number">1</div>
                     <div>
-                        <h6 class="fw-bold mb-1">Search or list</h6>
-                        <p class="text-secondary small mb-0">Find cameras, cranes, machines — or list your own asset in minutes.</p>
+                        <h6 class="fw-bold text-white mb-1">Search or list</h6>
+                        <p class="text-muted small mb-0">Search cameras, cranes, machinery — or list your own asset in minutes.</p>
                     </div>
                 </div>
                 <div class="d-flex gap-3 mb-4">
                     <div class="step-number">2</div>
                     <div>
-                        <h6 class="fw-bold mb-1">Chat &amp; agree</h6>
-                        <p class="text-secondary small mb-0">Use our chat to discuss availability, price, and terms securely.</p>
+                        <h6 class="fw-bold text-white mb-1">Chat &amp; agree</h6>
+                        <p class="text-muted small mb-0">Use direct chat to finalize lease dates, delivery logistics, and rates.</p>
                     </div>
                 </div>
                 <div class="d-flex gap-3">
                     <div class="step-number">3</div>
                     <div>
-                        <h6 class="fw-bold mb-1">Pay &amp; receive</h6>
-                        <p class="text-secondary small mb-0">Make payment through the platform and coordinate delivery/rental.</p>
+                        <h6 class="fw-bold text-white mb-1">Deploy &amp; track</h6>
+                        <p class="text-muted small mb-0">Track active bookings and lease status from your personal dashboard.</p>
                     </div>
                 </div>
             </div>
@@ -426,24 +431,24 @@
                     <div class="chat-bubble">
                         <div class="d-flex align-items-center gap-2 mb-3">
                             <i class="fas fa-circle text-success" style="font-size: 0.6rem;"></i>
-                            <span class="fw-semibold">Owner: Rajesh Cranes</span>
+                            <span class="fw-semibold text-white">Owner: Rajesh Cranes</span>
                         </div>
-                        <div class="message">Hi, the crane is available from Monday. Daily rate is ₹18,000.</div>
-                        <div class="message me">Great! We need it for 5 days. Can you include operator?</div>
-                        <div class="message">Yes, operator included. Total ₹90,000 + GST.</div>
-                        <div class="message me">Perfect. Sending payment now.</div>
-                        <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top border-secondary">
-                            <small>Payment protection</small>
-                            <i class="fas fa-lock text-warning"></i>
+                        <div class="message">Hi, the 50T crane is available starting Monday. Daily rate is ₹18,000.</div>
+                        <div class="message me">Great! We need it for 5 days. Can you include a certified operator?</div>
+                        <div class="message">Yes, operator included. Ready for dispatch on schedule.</div>
+                        <div class="message me">Confirmed! Booking request sent via IndiAsset.</div>
+                        <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top border-secondary border-opacity-25">
+                            <small class="text-muted">Verified Lease Discussion</small>
+                            <i class="fas fa-shield-alt text-primary"></i>
                         </div>
                     </div>
                     <div class="d-flex flex-column gap-3 justify-content-center">
-                        <div class="payment-badge"><i class="fas fa-check-circle"></i> Payment secured</div>
-                        <div class="payment-badge"><i class="fas fa-clock"></i> 5 day rental</div>
-                        <div class="payment-badge"><i class="fas fa-file-invoice"></i> Invoice generated</div>
-                        <div class="bg-light p-3 rounded-4 text-center mt-2">
+                        <div class="payment-badge"><i class="fas fa-check-circle"></i> Booking Approved</div>
+                        <div class="payment-badge"><i class="fas fa-clock"></i> 5 Day Lease Schedule</div>
+                        <div class="payment-badge"><i class="fas fa-file-contract"></i> Lease Agreement Logged</div>
+                        <div class="bg-dark p-3 rounded-4 text-center mt-2 border border-secondary border-opacity-25">
                             <i class="fas fa-arrow-right text-primary me-1"></i>
-                            <span class="fw-semibold">Funds released after delivery</span>
+                            <span class="fw-semibold text-white small">Live Equipment Tracking</span>
                         </div>
                     </div>
                 </div>
@@ -457,15 +462,14 @@
     <div class="container">
         <div class="cta-section text-center">
             <h2 class="mb-3">Ready to lease smarter?</h2>
-            <p class="mb-4 mx-auto" style="max-width: 600px; opacity: 0.9;">Join hundreds of companies already using IndiAsset for their equipment needs.</p>
+            <p class="mb-4 mx-auto text-muted" style="max-width: 600px;">Join businesses across India already utilizing IndiAsset for heavy equipment and production rentals.</p>
             <div class="d-flex flex-wrap justify-content-center gap-3">
-                <a href="#" class="btn-light-custom">Get started — it's free</a>
-                <a href="#" class="btn-outline-light-custom">Talk to sales</a>
+                <a asp-controller="Asset" asp-action="Index" class="btn-light-custom">Explore Assets for Lease</a>
+                <a asp-controller="Asset" asp-action="Create" class="btn-outline-light-custom">List Your Asset</a>
             </div>
         </div>
     </div>
 </section>
 
 @section Scripts {
-    <!-- Add any page-specific JS here if needed -->
 }

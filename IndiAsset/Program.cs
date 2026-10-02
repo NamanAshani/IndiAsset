@@ -26,6 +26,7 @@ var mongoDatabaseName =
 // Register MongoDbService
 builder.Services.AddSingleton<MongoDbService>();
 builder.Services.AddSingleton<PresenceTracker>();
+builder.Services.AddScoped<AssetAvailabilityService>();
 builder.Services.AddHostedService<MongoChangeStreamService>();
 
 // Register EmailSender
@@ -52,8 +53,11 @@ builder.Services.AddIdentityMongoDbProvider<
     },
     mongo =>
     {
-        mongo.ConnectionString =
-            $"{mongoConnectionString}/{mongoDatabaseName}";
+        var urlBuilder = new MongoUrlBuilder(mongoConnectionString)
+        {
+            DatabaseName = mongoDatabaseName
+        };
+        mongo.ConnectionString = urlBuilder.ToMongoUrl().Url;
     }
 );
 

@@ -1,9 +1,10 @@
-﻿
+
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
 namespace IndiAsset.Models
 {
+    [BsonIgnoreExtraElements]
     public class Notification
     {
         [BsonId]
@@ -18,6 +19,8 @@ namespace IndiAsset.Models
         public string Type { get; set; } = string.Empty;
 
         public string? RelatedEntityId { get; set; }
+
+        public string? TargetUrl { get; set; }
 
         public bool IsRead { get; set; } = false;
 

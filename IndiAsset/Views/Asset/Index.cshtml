@@ -1,0 +1,264 @@
+@model IndiAsset.Models.AssetSearchViewModel
+@{
+    ViewData["Title"] = "Asset Marketplace — IndiAsset";
+}
+
+<div class="container py-4">
+    <!-- Header Banner -->
+    <div class="p-4 p-md-5 mb-4 rounded-4 text-white" style="background: linear-gradient(135deg, #1a1d2e 0%, #1e293b 50%, #0f172a 100%); border: 1px solid rgba(255,255,255,0.06);">
+        <div class="row align-items-center">
+            <div class="col-lg-8">
+                <span class="badge bg-primary bg-opacity-25 text-info px-3 py-2 rounded-pill mb-3 fw-semibold">
+                    Live Asset Network
+                </span>
+                <h1 class="display-6 fw-bold mb-2">Explore Industrial & Commercial Assets</h1>
+                <p class="lead mb-4 text-light text-opacity-75">
+                    Lease heavy machinery, film equipment, power backups, and utility vehicles from verified asset owners across India.
+                </p>
+
+                <!-- Search Bar Form -->
+                <form method="get" asp-controller="Asset" asp-action="Index" class="p-2 rounded-4 shadow-sm" style="background: #1e2130;">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-md-5">
+                            <div class="input-group">
+                                <span class="input-group-text bg-transparent border-0 text-muted ps-3">
+                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                </span>
+                                <input type="text" name="q" value="@Model.SearchQuery" class="form-control border-0 shadow-none ps-2" placeholder="Search equipment, brand, or model..." />
+                            </div>
+                        </div>
+                        <div class="col-md-3 border-start">
+                            <select name="category" class="form-select border-0 shadow-none">
+                                <option value="">All Categories</option>
+                                @foreach (var cat in Model.Categories)
+                                {
+                                    <option value="@cat" selected="@(Model.SelectedCategory == cat)">@cat</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-2 border-start">
+                            <select name="city" class="form-select border-0 shadow-none">
+                                <option value="">All Cities</option>
+                                @foreach (var c in Model.Cities)
+                                {
+                                    <option value="@c" selected="@(Model.City == c)">@c</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100 rounded-3 py-2 fw-semibold">
+                                Search
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="col-lg-4 text-center text-lg-end mt-4 mt-lg-0">
+                <div class="d-inline-flex flex-column p-3 rounded-4 border border-white border-opacity-10 text-start" style="background: rgba(255,255,255,0.04);">
+                    <span class="text-uppercase text-light text-opacity-75 small fw-bold">Owner Opportunity</span>
+                    <h5 class="fw-bold text-white mb-2">Own Idle Equipment?</h5>
+                    <p class="small text-light text-opacity-75 mb-3">Monetize your unused assets. Get verified lease inquiries with secure deposits.</p>
+                    <a asp-controller="Asset" asp-action="Create" class="btn btn-warning fw-semibold rounded-pill px-3 py-2">
+                        List Your Asset
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Filters & Toolbar -->
+    <div class="row align-items-center mb-4 gy-2">
+        <div class="col-md-6">
+            <div class="d-flex align-items-center flex-wrap gap-2">
+                <span class="text-muted small fw-semibold me-1">Availability:</span>
+                <a asp-action="Index"
+                   asp-route-q="@Model.SearchQuery"
+                   asp-route-category="@Model.SelectedCategory"
+                   asp-route-city="@Model.City"
+                   asp-route-minPrice="@Model.MinPrice"
+                   asp-route-maxPrice="@Model.MaxPrice"
+                   asp-route-sortBy="@Model.SortBy"
+                   asp-route-availability="all"
+                   class="btn btn-sm rounded-pill @(string.IsNullOrEmpty(Model.AvailabilityFilter) || Model.AvailabilityFilter == "all" ? "btn-primary" : "btn-outline-secondary")">
+                    All (@Model.TotalCount)
+                </a>
+                <a asp-action="Index"
+                   asp-route-q="@Model.SearchQuery"
+                   asp-route-category="@Model.SelectedCategory"
+                   asp-route-city="@Model.City"
+                   asp-route-minPrice="@Model.MinPrice"
+                   asp-route-maxPrice="@Model.MaxPrice"
+                   asp-route-sortBy="@Model.SortBy"
+                   asp-route-availability="available"
+                   class="btn btn-sm rounded-pill @(Model.AvailabilityFilter == "available" ? "btn-success" : "btn-outline-success")">
+                    Available Now
+                </a>
+                <a asp-action="Index"
+                   asp-route-q="@Model.SearchQuery"
+                   asp-route-category="@Model.SelectedCategory"
+                   asp-route-city="@Model.City"
+                   asp-route-minPrice="@Model.MinPrice"
+                   asp-route-maxPrice="@Model.MaxPrice"
+                   asp-route-sortBy="@Model.SortBy"
+                   asp-route-availability="occupied"
+                   class="btn btn-sm rounded-pill @(Model.AvailabilityFilter == "occupied" ? "btn-danger" : "btn-outline-danger")">
+                    Currently Occupied
+                </a>
+            </div>
+        </div>
+        <div class="col-md-6 text-md-end">
+            <form method="get" asp-action="Index" class="d-inline-flex align-items-center gap-2">
+                <input type="hidden" name="q" value="@Model.SearchQuery" />
+                <input type="hidden" name="category" value="@Model.SelectedCategory" />
+                <input type="hidden" name="city" value="@Model.City" />
+                <input type="hidden" name="availability" value="@Model.AvailabilityFilter" />
+                <span class="text-muted small fw-semibold">Sort by:</span>
+                <select name="sortBy" class="form-select form-select-sm w-auto rounded-pill" onchange="this.form.submit()">
+                    <option value="newest" selected="@(Model.SortBy == "newest")">Newest Listings</option>
+                    <option value="price_asc" selected="@(Model.SortBy == "price_asc")">Price: Low to High</option>
+                    <option value="price_desc" selected="@(Model.SortBy == "price_desc")">Price: High to Low</option>
+                    <option value="title" selected="@(Model.SortBy == "title")">Asset Name</option>
+                </select>
+                @if (!string.IsNullOrEmpty(Model.SearchQuery) || !string.IsNullOrEmpty(Model.SelectedCategory) || !string.IsNullOrEmpty(Model.City) || Model.AvailabilityFilter != "all")
+                {
+                    <a asp-action="Index" class="btn btn-sm btn-link text-decoration-none text-muted">
+                        Reset
+                    </a>
+                }
+            </form>
+        </div>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show rounded-3 shadow-sm mb-4" role="alert">
+            @TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (Model.Assets.Any())
+    {
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+            @foreach (var asset in Model.Assets)
+            {
+                <div class="col">
+                    <div class="card h-100 rounded-4 overflow-hidden d-flex flex-column transition-hover" style="transition: transform 0.2s ease, box-shadow 0.2s ease;">
+                        <div class="position-relative overflow-hidden" style="height: 220px; background-color: #252836;">
+                            @if (!string.IsNullOrEmpty(asset.PrimaryImageUrl))
+                            {
+                                <img src="@asset.PrimaryImageUrl" class="w-100 h-100 object-fit-cover" alt="@asset.Title" loading="lazy" />
+                            }
+                            else
+                            {
+                                <div class="w-100 h-100 d-flex align-items-center justify-content-center text-muted">
+                                    <i class="fa-solid fa-cubes-stacked fa-3x opacity-25"></i>
+                                </div>
+                            }
+
+                            <div class="position-absolute top-0 start-0 m-3">
+                                @if (asset.IsCurrentlyOccupied)
+                                {
+                                    <span class="badge bg-danger text-white rounded-pill px-3 py-2 shadow-sm d-inline-flex align-items-center gap-1 fw-semibold">
+                                        @if (asset.OccupiedUntil.HasValue)
+                                        {
+                                            <span>Occupied until @asset.OccupiedUntil.Value.ToString("dd MMM")</span>
+                                        }
+                                        else
+                                        {
+                                            <span>Currently Occupied</span>
+                                        }
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-success text-white rounded-pill px-3 py-2 shadow-sm d-inline-flex align-items-center gap-1 fw-semibold">
+                                        Available Now
+                                    </span>
+                                }
+                            </div>
+
+                            <div class="position-absolute top-0 end-0 m-3">
+                                <span class="badge bg-dark bg-opacity-75 text-white rounded-pill px-2 py-1 small">
+                                    @asset.Category
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="card-body p-4 d-flex flex-column flex-grow-1">
+                            <div class="d-flex align-items-center justify-content-between text-muted small mb-2">
+                                <span>@(asset.City ?? "Pan-India")</span>
+                                <span>@asset.OwnerName</span>
+                            </div>
+
+                            <h5 class="card-title fw-bold mb-2 text-truncate" title="@asset.Title">
+                                <a asp-action="Details" asp-route-id="@asset.Id" class="text-decoration-none" style="color: #f1f5f9;">
+                                    @asset.Title
+                                </a>
+                            </h5>
+
+                            <p class="card-text text-muted small mb-3 flex-grow-1" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                                @asset.Description
+                            </p>
+
+                            <div class="p-3 rounded-3 bg-light d-flex align-items-center justify-content-between mb-3">
+                                <div>
+                                    <span class="text-muted d-block small">Daily Rent</span>
+                                    <span class="h5 fw-bold text-primary mb-0">₹@asset.DailyRent.ToString("N0")</span>
+                                    <span class="small text-muted">/day</span>
+                                </div>
+                                <div class="text-end">
+                                    <span class="text-muted d-block small">Deposit</span>
+                                    <span class="fw-semibold" style="color: #e2e8f0;">₹@asset.SecurityDeposit.ToString("N0")</span>
+                                </div>
+                            </div>
+
+                            <div class="mt-auto d-flex gap-2">
+                                <a asp-action="Details" asp-route-id="@asset.Id" class="btn btn-outline-primary rounded-3 flex-grow-1 fw-semibold py-2">
+                                    View Details
+                                </a>
+                                @if (asset.IsOwner)
+                                {
+                                    <a asp-action="Edit" asp-route-id="@asset.Id" class="btn btn-outline-secondary rounded-3 px-3 py-2" title="Edit Listing">
+                                        <i class="fa-solid fa-pen-to-square"></i>
+                                    </a>
+                                }
+                                else
+                                {
+                                    <a asp-controller="Chat" asp-action="Index" asp-route-recipientId="@asset.OwnerId" class="btn btn-outline-secondary rounded-3 px-3 py-2" title="Chat with Owner">
+                                        <i class="fa-regular fa-comment-dots"></i>
+                                    </a>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="text-center py-5 my-4 bg-light rounded-4">
+            <div class="mb-3">
+                <i class="fa-solid fa-cubes-stacked fa-3x text-muted opacity-50"></i>
+            </div>
+            <h4 class="fw-bold" style="color: #f1f5f9;">No assets match your search filters</h4>
+            <p class="text-muted mb-4">Try clearing your filters or search keywords to discover more equipment.</p>
+            <div class="d-inline-flex gap-2">
+                <a asp-action="Index" class="btn btn-outline-primary rounded-pill px-4">
+                    Clear Filters
+                </a>
+                <a asp-action="Create" class="btn btn-primary rounded-pill px-4">
+                    List New Asset
+                </a>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .transition-hover:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4) !important;
+    }
+</style>

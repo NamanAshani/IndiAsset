@@ -1,5 +1,5 @@
-﻿<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,15 +16,15 @@
             }
 
             body {
-                background-color: #f8fafc;
-                color: #0b2b4a;
+                background-color: #0f1117;
+                color: #e2e8f0;
             }
 
             /* ---------- Navbar ---------- */
             .navbar {
-                background: rgba(255, 255, 255, 0.9) !important;
-                backdrop-filter: blur(10px);
-                border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+                background: rgba(15, 17, 23, 0.95) !important;
+                backdrop-filter: blur(12px);
+                border-bottom: 1px solid rgba(255, 255, 255, 0.06);
                 padding: 1rem 0;
             }
 
@@ -32,21 +32,21 @@
                 font-weight: 700;
                 font-size: 1.8rem;
                 letter-spacing: -0.5px;
-                color: #0b2b4a !important;
+                color: #f1f5f9 !important;
             }
 
             .navbar-brand span {
-                color: #2563eb;
+                color: #60a5fa;
             }
 
             .nav-link {
                 font-weight: 500;
-                color: #1e293b !important;
+                color: #cbd5e1 !important;
                 margin: 0 0.5rem;
             }
 
             .nav-link:hover {
-                color: #2563eb !important;
+                color: #60a5fa !important;
             }
 
             /* ---------- Buttons (shared) ---------- */
@@ -61,16 +61,16 @@
             }
 
             .btn-primary-custom:hover {
-                background-color: #1d4ed8;
+                background-color: #3b82f6;
                 transform: translateY(-1px);
-                box-shadow: 0 8px 16px -6px rgba(37, 99, 235, 0.3);
+                box-shadow: 0 8px 20px -6px rgba(59, 130, 246, 0.4);
                 color: white;
             }
 
             .btn-outline-custom {
-                border: 1.5px solid #2563eb;
+                border: 1.5px solid #3b82f6;
                 background: transparent;
-                color: #2563eb;
+                color: #60a5fa;
                 font-weight: 600;
                 padding: 0.6rem 1.5rem;
                 border-radius: 40px;
@@ -78,20 +78,219 @@
             }
 
             .btn-outline-custom:hover {
-                background-color: #eff6ff;
-                border-color: #2563eb;
-                color: #2563eb;
+                background-color: rgba(59, 130, 246, 0.1);
+                border-color: #60a5fa;
+                color: #93bbfc;
+            }
+
+            /* ---------- Cards & surfaces ---------- */
+            .card {
+                background-color: #1a1d27 !important;
+                border: 1px solid rgba(255, 255, 255, 0.06) !important;
+            }
+
+            .bg-light {
+                background-color: #1e2130 !important;
+            }
+
+            .bg-white {
+                background-color: #1a1d27 !important;
+            }
+
+            .table {
+                --bs-table-bg: #1a1d27;
+                --bs-table-striped-bg: #1e2130;
+                color: #cbd5e1;
+            }
+
+            .table-bordered {
+                border-color: rgba(255,255,255,0.08);
+            }
+
+            th.bg-light {
+                background-color: #1e2130 !important;
+                color: #94a3b8 !important;
+            }
+
+            .form-control, .form-select {
+                background-color: #1e2130;
+                border-color: rgba(255, 255, 255, 0.1);
+                color: #e2e8f0;
+            }
+
+            .form-control:focus, .form-select:focus {
+                background-color: #252836;
+                border-color: #3b82f6;
+                color: #f1f5f9;
+                box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.15);
+            }
+
+            .form-control::placeholder {
+                color: #64748b;
+            }
+
+            .input-group-text {
+                background-color: #1e2130 !important;
+                border-color: rgba(255, 255, 255, 0.1);
+                color: #94a3b8;
+            }
+
+            .alert-success {
+                background-color: rgba(34, 197, 94, 0.1) !important;
+                border-color: rgba(34, 197, 94, 0.2) !important;
+                color: #86efac !important;
+            }
+
+            .alert-danger {
+                background-color: rgba(239, 68, 68, 0.1) !important;
+                border-color: rgba(239, 68, 68, 0.2) !important;
+                color: #fca5a5 !important;
+            }
+
+            .alert-info {
+                background-color: rgba(59, 130, 246, 0.1) !important;
+                border-color: rgba(59, 130, 246, 0.2) !important;
+                color: #93c5fd !important;
+            }
+
+            .text-dark {
+                color: #f1f5f9 !important;
+            }
+
+            .text-muted {
+                color: #94a3b8 !important;
+            }
+
+            .text-secondary {
+                color: #94a3b8 !important;
+            }
+
+            .border {
+                border-color: rgba(255, 255, 255, 0.08) !important;
+            }
+
+            .border-top {
+                border-color: rgba(255, 255, 255, 0.08) !important;
+            }
+
+            .border-start {
+                border-color: rgba(255, 255, 255, 0.08) !important;
+            }
+
+            .shadow-sm {
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+            }
+
+            .breadcrumb-item a {
+                color: #60a5fa;
+            }
+
+            .breadcrumb-item.active {
+                color: #94a3b8;
+            }
+
+            /* ---------- Modals & Dropdowns ---------- */
+            .modal-content {
+                background-color: #1a1d27 !important;
+                color: #e2e8f0 !important;
+                border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            }
+
+            .modal-header, .modal-footer {
+                border-color: rgba(255, 255, 255, 0.08) !important;
+            }
+
+            .btn-close {
+                filter: invert(1) grayscale(100%) brightness(200%);
+            }
+
+            .dropdown-menu {
+                background-color: #1a1d27 !important;
+                border: 1px solid rgba(255, 255, 255, 0.1) !important;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            }
+
+            .dropdown-item {
+                color: #cbd5e1 !important;
+            }
+
+            .dropdown-item:hover, .dropdown-item:focus {
+                background-color: #252838 !important;
+                color: #ffffff !important;
+            }
+
+            /* ---------- Nav Pills & List Groups ---------- */
+            .nav-pills .nav-link {
+                color: #cbd5e1;
+                border-radius: 10px;
+                font-weight: 500;
+            }
+
+            .nav-pills .nav-link:hover {
+                background: rgba(255, 255, 255, 0.06);
+                color: #ffffff;
+            }
+
+            .nav-pills .nav-link.active {
+                background-color: #2563eb !important;
+                color: #ffffff !important;
+            }
+
+            .list-group-item {
+                background-color: #1e2130 !important;
+                color: #e2e8f0 !important;
+                border-color: rgba(255, 255, 255, 0.08) !important;
+            }
+
+            .list-group-item-action:hover {
+                background-color: #252838 !important;
+                color: #ffffff !important;
+            }
+
+            /* ---------- Button light override ---------- */
+            .btn-light {
+                background-color: #1e2130 !important;
+                color: #e2e8f0 !important;
+                border-color: rgba(255, 255, 255, 0.1) !important;
+            }
+
+            .btn-light:hover {
+                background-color: #252838 !important;
+                color: #ffffff !important;
+                border-color: rgba(255, 255, 255, 0.2) !important;
+            }
+
+            /* ---------- Form Floating Dark Mode Fix ---------- */
+            .form-floating > .form-control {
+                background-color: #1e2130;
+                color: #e2e8f0;
+            }
+
+            .form-floating > .form-control:focus {
+                background-color: #252838;
+                color: #ffffff;
+            }
+
+            .form-floating > label {
+                color: #94a3b8;
+            }
+
+            .form-floating > .form-control:focus ~ label,
+            .form-floating > .form-control:not(:placeholder-shown) ~ label {
+                color: #60a5fa;
+                background-color: transparent;
             }
 
             /* ---------- Footer ---------- */
             .footer {
                 padding: 2.5rem 0;
                 color: #64748b;
-                border-top: 1px solid #e2e8f0;
+                border-top: 1px solid rgba(255, 255, 255, 0.06);
+                background-color: #0c0e14;
             }
 
             .footer a {
-                color: #2563eb;
+                color: #60a5fa;
                 text-decoration: none;
                 font-weight: 500;
             }
@@ -99,6 +298,16 @@
             .footer a:hover {
                 text-decoration: underline;
             }
+
+            .footer .fw-bold {
+                color: #f1f5f9 !important;
+            }
+
+            /* Scrollbar */
+            ::-webkit-scrollbar { width: 8px; }
+            ::-webkit-scrollbar-track { background: #0f1117; }
+            ::-webkit-scrollbar-thumb { background: #2a2d3a; border-radius: 4px; }
+            ::-webkit-scrollbar-thumb:hover { background: #3b3f50; }
     </style>
 
     @await RenderSectionAsync("Styles", required: false)
@@ -109,7 +318,7 @@
     <nav class="navbar navbar-expand-lg sticky-top">
         <div class="container">
             <a class="navbar-brand" asp-controller="Home" asp-action="Index">
-                <i class="fas fa-cubes me-2" style="color: #2563eb;"></i>
+                <i class="fas fa-cubes me-2" style="color: #60a5fa;"></i>
                 Indi<span>Asset</span>
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -118,13 +327,17 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto align-items-center">
                     <li class="nav-item">
-                        <a class="nav-link" href="#">Browse Assets</a>
+                        <a class="nav-link" asp-controller="Asset" asp-action="Index">
+                            Browse Assets
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#">List Your Asset</a>
+                        <a class="nav-link" asp-controller="Asset" asp-action="Create">
+                            List Your Asset
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#">How it works</a>
+                        <a class="nav-link" asp-controller="Home" asp-action="Index" asp-fragment="how-it-works">How it works</a>
                     </li>
                     <partial name="_LoginPartial" />
                 </ul>
@@ -142,7 +355,7 @@
         <div class="container">
             <div class="row align-items-center">
                 <div class="col-md-6 text-center text-md-start">
-                    <span class="fw-bold" style="color: #0b2b4a;">IndiAsset</span> &copy; @DateTime.Now.Year — Lease big assets, simply.
+                    <span class="fw-bold">IndiAsset</span> &copy; @DateTime.Now.Year — <strong>Lease. Share. Build.</strong>
                 </div>
                 <div class="col-md-6 text-center text-md-end mt-3 mt-md-0">
                     <a href="#" class="me-3">Privacy</a>
