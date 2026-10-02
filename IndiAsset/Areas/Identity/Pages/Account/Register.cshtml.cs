@@ -96,15 +96,15 @@ public class RegisterModel : PageModel
         [Phone]
         [Required]
         [Display(Name = "Phone Number")]
-        public string PhoneNumber { get; set; }
+        public string PhoneNumber { get; set; } = string.Empty;
 
         [Display(Name = "Address")]
         [Required]
-        public string Address { get; set; }
+        public string Address { get; set; } = string.Empty;
 
         [Display(Name = "City")]
         [Required]
-        public string City { get; set; }
+        public string City { get; set; } = string.Empty;
     }
 
 
@@ -124,6 +124,14 @@ public class RegisterModel : PageModel
 
             await _userStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
             await _emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
+
+            user.FullName = Input.FullName;
+            user.Address = Input.Address;
+            user.City = Input.City;
+            user.PhoneNumber = Input.PhoneNumber;
+            user.CreatedAt = DateTime.UtcNow;
+            user.IsActive = true;
+
             var result = await _userManager.CreateAsync(user, Input.Password);
 
             if (result.Succeeded)

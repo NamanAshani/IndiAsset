@@ -1,4 +1,4 @@
-﻿
+
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
@@ -10,8 +10,8 @@ namespace IndiAsset.Models
         [BsonRepresentation(BsonType.ObjectId)]
         public string? Id { get; set; }
 
-        [BsonRepresentation(BsonType.ObjectId)]
-        public string BookingId { get; set; } = string.Empty;
+        [BsonIgnoreIfNull]
+        public string? BookingId { get; set; }
 
         public string OwnerId { get; set; } = string.Empty;
         public string RenterId { get; set; } = string.Empty;

@@ -1,4 +1,4 @@
-﻿
+
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
@@ -10,7 +10,6 @@ namespace IndiAsset.Models
         [BsonRepresentation(BsonType.ObjectId)]
         public string? Id { get; set; }
 
-        [BsonRepresentation(BsonType.ObjectId)]
         public string ConversationId { get; set; } = string.Empty;
 
         public string SenderId { get; set; } = string.Empty;

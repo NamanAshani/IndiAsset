@@ -1,0 +1,140 @@
+@model IndiAsset.Models.ApplicationUser
+@{
+    ViewData["Title"] = "My Profile";
+    Layout = "_Layout";
+}
+
+<style>
+    .profile-card {
+        background: #ffffff;
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(11, 43, 74, 0.06);
+        border: 1px solid #e2e8f0;
+        padding: 40px;
+        margin-top: 30px;
+        margin-bottom: 50px;
+    }
+
+    .profile-avatar-lg {
+        width: 90px;
+        height: 90px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #2563eb, #60a5fa);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.4rem;
+        font-weight: 700;
+        box-shadow: 0 8px 20px rgba(37, 99, 235, 0.25);
+    }
+
+    .profile-info-label {
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 600;
+        color: #64748b;
+        margin-bottom: 4px;
+    }
+
+    .profile-info-val {
+        font-size: 1.05rem;
+        font-weight: 600;
+        color: #0b2b4a;
+    }
+
+    .profile-tile {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 16px 20px;
+        height: 100%;
+        transition: all 0.2s;
+    }
+
+    .profile-tile:hover {
+        background: #f1f5f9;
+        transform: translateY(-2px);
+    }
+</style>
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-9">
+            <div class="profile-card">
+                <div class="d-flex flex-column flex-md-row align-items-center gap-4 border-bottom pb-4 mb-4">
+                    <div class="profile-avatar-lg">
+                        @(!string.IsNullOrEmpty(Model?.FullName) ? Model.FullName.Substring(0, 1).ToUpper() : "U")
+                    </div>
+                    <div class="flex-grow-1 text-center text-md-start">
+                        <div class="d-flex flex-wrap align-items-center gap-2 justify-content-center justify-content-md-start mb-1">
+                            <h2 class="fw-bold mb-0 text-dark">@(Model?.FullName ?? "User Profile")</h2>
+                            <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                                <i class="fas fa-check-circle me-1"></i> Active Member
+                            </span>
+                        </div>
+                        <p class="text-muted mb-2"><i class="fas fa-envelope me-2"></i>@Model?.Email</p>
+                        <p class="small text-muted mb-0">
+                            <i class="fas fa-calendar-alt me-1"></i> Member since @Model?.CreatedAt.ToString("MMMM dd, yyyy")
+                        </p>
+                    </div>
+                    <div>
+                        <a asp-controller="Chat" asp-action="Index" class="btn btn-primary-custom">
+                            <i class="fas fa-comments me-2"></i>Open Chat
+                        </a>
+                    </div>
+                </div>
+
+                <h4 class="fw-bold text-dark mb-3">Account Details</h4>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <div class="profile-tile">
+                            <div class="profile-info-label">Full Name</div>
+                            <div class="profile-info-val">@(string.IsNullOrEmpty(Model?.FullName) ? "Not set" : Model.FullName)</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="profile-tile">
+                            <div class="profile-info-label">Email Address</div>
+                            <div class="profile-info-val">@Model?.Email</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="profile-tile">
+                            <div class="profile-info-label">Phone Number</div>
+                            <div class="profile-info-val">@(string.IsNullOrEmpty(Model?.PhoneNumber) ? "Not set" : Model.PhoneNumber)</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="profile-tile">
+                            <div class="profile-info-label">City</div>
+                            <div class="profile-info-val">@(string.IsNullOrEmpty(Model?.City) ? "Not set" : Model.City)</div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="profile-tile">
+                            <div class="profile-info-label">Address</div>
+                            <div class="profile-info-val">@(string.IsNullOrEmpty(Model?.Address) ? "Not set" : Model.Address)</div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="profile-tile">
+                            <div class="profile-info-label">Database Identifier (MongoDB _id)</div>
+                            <div class="profile-info-val text-muted font-monospace small">@Model?.Id</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                    <a asp-area="Identity" asp-page="/Account/Manage/Index" class="btn btn-outline-secondary">
+                        <i class="fas fa-user-edit me-1"></i> Account Settings
+                    </a>
+                    <a asp-controller="Home" asp-action="Index" class="btn btn-outline-primary">
+                        <i class="fas fa-home me-1"></i> Back to Home
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

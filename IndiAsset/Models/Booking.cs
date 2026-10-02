@@ -20,8 +20,6 @@ namespace IndiAsset.Models
         public DateTime EndDate { get; set; }
 
         public decimal DailyRent { get; set; }
-        public decimal SecurityDeposit { get; set; }
-        public decimal TotalRent { get; set; }
 
         public BookingStatus Status { get; set; }
             = BookingStatus.Pending;

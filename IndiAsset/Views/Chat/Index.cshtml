@@ -1,0 +1,722 @@
+@model IndiAsset.Models.ChatViewModel
+@{
+    ViewData["Title"] = "Messages & Chat";
+    Layout = "_Layout";
+}
+
+@section Styles {
+    <style>
+        .chat-app-container {
+            height: calc(100vh - 140px);
+            min-height: 600px;
+            max-height: 850px;
+            margin: 20px auto;
+            background: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(11, 43, 74, 0.08);
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+            display: flex;
+        }
+
+        /* ----- Left Sidebar ----- */
+        .chat-sidebar {
+            width: 360px;
+            border-right: 1px solid #edf2f7;
+            display: flex;
+            flex-direction: column;
+            background: #ffffff;
+        }
+
+        .chat-sidebar-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #edf2f7;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .chat-sidebar-header h2 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin: 0;
+            color: #0b2b4a;
+        }
+
+        .chat-search-box {
+            padding: 12px 20px;
+            border-bottom: 1px solid #edf2f7;
+        }
+
+        .chat-search-input {
+            width: 100%;
+            padding: 9px 16px 9px 38px;
+            border: 1px solid #e2e8f0;
+            border-radius: 30px;
+            font-size: 0.88rem;
+            background: #f8fafc;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .chat-search-input:focus {
+            border-color: #2563eb;
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .chat-search-wrap {
+            position: relative;
+        }
+
+        .chat-search-wrap i {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+            font-size: 0.85rem;
+        }
+
+        .conversation-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 12px;
+            margin: 0;
+            list-style: none;
+        }
+
+        .conversation-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 14px;
+            border-radius: 14px;
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+            margin-bottom: 6px;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .conversation-item:hover {
+            background: #f1f5f9;
+        }
+
+        .conversation-item.active {
+            background: #eff6ff;
+            border: 1px solid #dbeafe;
+        }
+
+        .user-avatar {
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #2563eb, #60a5fa);
+            color: white;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.05rem;
+            flex-shrink: 0;
+            margin-right: 14px;
+            box-shadow: 0 3px 8px rgba(37, 99, 235, 0.2);
+            position: relative;
+        }
+
+        .online-indicator {
+            width: 11px;
+            height: 11px;
+            background: #22c55e;
+            border: 2px solid white;
+            border-radius: 50%;
+            position: absolute;
+            bottom: 0;
+            right: 0;
+        }
+
+        .conversation-meta {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .conversation-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+
+        .conversation-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: #0b2b4a;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .conversation-time {
+            font-size: 0.75rem;
+            color: #94a3b8;
+        }
+
+        .conversation-preview {
+            font-size: 0.83rem;
+            color: #64748b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin: 0;
+        }
+
+        .unread-pill {
+            background: #2563eb;
+            color: white;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 2px 7px;
+            margin-left: 6px;
+        }
+
+        /* ----- Right Chat Area ----- */
+        .chat-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #f8fafc;
+        }
+
+        .chat-main-header {
+            padding: 16px 24px;
+            background: #ffffff;
+            border-bottom: 1px solid #edf2f7;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .chat-header-user {
+            display: flex;
+            align-items: center;
+        }
+
+        .chat-header-info h3 {
+            margin: 0;
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #0b2b4a;
+        }
+
+        .chat-header-info span {
+            font-size: 0.8rem;
+            color: #22c55e;
+            font-weight: 500;
+        }
+
+        .chat-messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .message-bubble-wrapper {
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+            max-width: 72%;
+        }
+
+        .message-bubble-wrapper.sent {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+
+        .message-bubble-wrapper.received {
+            align-self: flex-start;
+        }
+
+        .message-avatar-small {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #475569, #94a3b8);
+            color: white;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .message-bubble {
+            padding: 12px 18px;
+            border-radius: 18px;
+            font-size: 0.92rem;
+            line-height: 1.45;
+            position: relative;
+            word-break: break-word;
+        }
+
+        .message-bubble-wrapper.sent .message-bubble {
+            background: #2563eb;
+            color: #ffffff;
+            border-bottom-right-radius: 4px;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+        }
+
+        .message-bubble-wrapper.received .message-bubble {
+            background: #ffffff;
+            color: #1e293b;
+            border-bottom-left-radius: 4px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        .message-meta {
+            font-size: 0.7rem;
+            margin-top: 4px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .message-bubble-wrapper.sent .message-meta {
+            color: rgba(255, 255, 255, 0.8);
+            justify-content: flex-end;
+        }
+
+        .message-bubble-wrapper.received .message-meta {
+            color: #94a3b8;
+        }
+
+        .chat-input-bar {
+            padding: 16px 24px;
+            background: #ffffff;
+            border-top: 1px solid #edf2f7;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .chat-input-field {
+            flex: 1;
+            padding: 12px 20px;
+            border: 1px solid #e2e8f0;
+            border-radius: 30px;
+            outline: none;
+            font-size: 0.92rem;
+            background: #f8fafc;
+            transition: all 0.2s;
+        }
+
+        .chat-input-field:focus {
+            border-color: #2563eb;
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .btn-send-message {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: #2563eb;
+            color: white;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+            flex-shrink: 0;
+        }
+
+        .btn-send-message:hover {
+            background: #1d4ed8;
+            transform: scale(1.05);
+        }
+
+        .empty-chat-state {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 40px;
+            color: #64748b;
+        }
+
+        .empty-chat-icon {
+            width: 80px;
+            height: 80px;
+            background: #eff6ff;
+            color: #2563eb;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.2rem;
+            margin-bottom: 20px;
+        }
+
+        @@media (max-width: 768px) {
+            .chat-app-container {
+                flex-direction: column;
+                height: auto;
+            }
+            .chat-sidebar {
+                width: 100%;
+                height: 300px;
+            }
+        }
+    </style>
+}
+
+<div class="container py-3">
+    <div class="chat-app-container">
+
+        <!-- =================== LEFT SIDEBAR =================== -->
+        <div class="chat-sidebar">
+            <div class="chat-sidebar-header">
+                <h2><i class="fas fa-comments text-primary me-2"></i>Lease Chats</h2>
+                <button type="button" class="btn btn-sm btn-primary-custom" data-bs-toggle="modal" data-bs-target="#newChatModal">
+                    <i class="fas fa-plus me-1"></i> New Chat
+                </button>
+            </div>
+
+            <div class="chat-search-box">
+                <div class="chat-search-wrap">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="chatSearchInput" class="chat-search-input" placeholder="Search conversations..." />
+                </div>
+            </div>
+
+            <ul class="conversation-list" id="conversationList">
+                @if (Model.Conversations.Any())
+                {
+                    @foreach (var conv in Model.Conversations)
+                    {
+                        var initial = !string.IsNullOrEmpty(conv.OtherUserName) ? conv.OtherUserName.Substring(0, 1).ToUpper() : "U";
+                        <li>
+                            <a asp-action="Index" asp-route-conversationId="@conv.ConversationId"
+                               class="conversation-item @(conv.IsSelected ? "active" : "")"
+                               data-name="@conv.OtherUserName.ToLower()"
+                               data-conv-id="@conv.ConversationId">
+                                <div class="user-avatar">
+                                    @initial
+                                    <span class="online-indicator"></span>
+                                </div>
+                                <div class="conversation-meta">
+                                    <div class="conversation-header">
+                                        <span class="conversation-name">@conv.OtherUserName</span>
+                                        <span class="conversation-time">
+                                            @(conv.LastMessageAt.HasValue ? conv.LastMessageAt.Value.ToLocalTime().ToString("hh:mm tt") : "")
+                                        </span>
+                                    </div>
+                                    <div class="d-flex align-items-center justify-content-between">
+                                        <p class="conversation-preview" id="preview-@conv.ConversationId">@conv.LastMessageContent</p>
+                                        @if (conv.UnreadCount > 0)
+                                        {
+                                            <span class="unread-pill" id="unread-@conv.ConversationId">@conv.UnreadCount</span>
+                                        }
+                                    </div>
+                                </div>
+                            </a>
+                        </li>
+                    }
+                }
+                else
+                {
+                    <li class="p-4 text-center text-muted">
+                        <i class="fas fa-inbox fa-2x mb-2 text-secondary"></i>
+                        <p class="small mb-2">No conversations yet.</p>
+                        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#newChatModal">
+                            Find users to chat
+                        </button>
+                    </li>
+                }
+            </ul>
+        </div>
+
+        <!-- =================== RIGHT CHAT MAIN =================== -->
+        <div class="chat-main">
+            @if (!string.IsNullOrEmpty(Model.ActiveConversationId) && Model.ActiveRecipient != null)
+            {
+                var recipientName = !string.IsNullOrWhiteSpace(Model.ActiveRecipient.FullName)
+                    ? Model.ActiveRecipient.FullName
+                    : (Model.ActiveRecipient.UserName ?? "User");
+                var recipientInitial = recipientName.Substring(0, 1).ToUpper();
+
+                <!-- Header -->
+                <div class="chat-main-header">
+                    <div class="chat-header-user">
+                        <div class="user-avatar me-3">
+                            @recipientInitial
+                            <span class="online-indicator"></span>
+                        </div>
+                        <div class="chat-header-info">
+                            <h3>@recipientName</h3>
+                            <span><i class="fas fa-circle me-1" style="font-size: 8px;"></i>Online • Asset Leasing Discussion</span>
+                        </div>
+                    </div>
+                    <div>
+                        <span class="badge bg-light text-dark border px-3 py-2">
+                            <i class="fas fa-shield-alt text-primary me-1"></i> Verified Lease Chat
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Messages Stream -->
+                <div class="chat-messages-container" id="chatMessagesContainer">
+                    @if (Model.Messages.Any())
+                    {
+                        @foreach (var msg in Model.Messages)
+                        {
+                            var initial = !string.IsNullOrEmpty(msg.SenderName) ? msg.SenderName.Substring(0, 1).ToUpper() : "U";
+                            <div class="message-bubble-wrapper @(msg.IsMine ? "sent" : "received")" data-msg-id="@msg.Id">
+                                @if (!msg.IsMine)
+                                {
+                                    <div class="message-avatar-small">@initial</div>
+                                }
+                                <div>
+                                    <div class="message-bubble">
+                                        @msg.Content
+                                        <div class="message-meta">
+                                            <span>@msg.FormattedTime</span>
+                                            @if (msg.IsMine)
+                                            {
+                                                <i class="fas fa-check-double ms-1" style="font-size: 10px;"></i>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="text-center text-muted my-auto" id="noMessagesNotice">
+                            <i class="far fa-paper-plane fa-2x mb-2 text-primary"></i>
+                            <p class="mb-0">This is the start of your lease conversation with <strong>@recipientName</strong>.</p>
+                            <small>Discuss terms, asset availability, delivery details, and questions securely.</small>
+                        </div>
+                    }
+                </div>
+
+                <!-- Input bar -->
+                <form id="chatForm" class="chat-input-bar">
+                    <input type="text" id="messageInput" class="chat-input-field" placeholder="Type a message or inquiry..." autocomplete="off" />
+                    <button type="submit" class="btn-send-message" id="sendBtn" title="Send Message">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </form>
+            }
+            else
+            {
+                <div class="empty-chat-state">
+                    <div class="empty-chat-icon">
+                        <i class="fas fa-comments"></i>
+                    </div>
+                    <h3 class="fw-bold text-dark">Welcome to IndiAsset Chat</h3>
+                    <p class="text-muted" style="max-width: 420px;">
+                        Connect directly with asset owners, lessors, and renters. Inquire about equipment, rates, contracts, or logistics in real-time.
+                    </p>
+                    <button class="btn btn-primary-custom" data-bs-toggle="modal" data-bs-target="#newChatModal">
+                        <i class="fas fa-user-plus me-1"></i> Start a Conversation
+                    </button>
+                </div>
+            }
+        </div>
+
+    </div>
+</div>
+
+<!-- =================== NEW CHAT MODAL =================== -->
+<div class="modal fade" id="newChatModal" tabindex="-1" aria-labelledby="newChatModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 18px;">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold" id="newChatModalLabel">
+                    <i class="fas fa-comment-dots text-primary me-2"></i>Start a New Conversation
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body pt-3">
+                <p class="text-muted small mb-3">Select any registered member or asset partner to begin direct messaging:</p>
+                <div class="list-group list-group-flush">
+                    @if (Model.AvailableUsers.Any())
+                    {
+                        @foreach (var user in Model.AvailableUsers)
+                        {
+                            var name = !string.IsNullOrWhiteSpace(user.FullName) ? user.FullName : (user.UserName ?? "User");
+                            var initial = name.Substring(0, 1).ToUpper();
+                            <form asp-action="StartChat" method="post" class="mb-2">
+                                <input type="hidden" name="recipientId" value="@user.Id" />
+                                <button type="submit" class="list-group-item list-group-item-action d-flex align-items-center p-3 border rounded-3 text-start">
+                                    <div class="user-avatar me-3" style="width: 40px; height: 40px; font-size: 0.95rem;">
+                                        @initial
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <div class="fw-bold text-dark">@name</div>
+                                        <div class="small text-muted">@user.Email @(!string.IsNullOrEmpty(user.City) ? $"• {user.City}" : "")</div>
+                                    </div>
+                                    <span class="btn btn-sm btn-outline-custom">Chat <i class="fas fa-arrow-right ms-1"></i></span>
+                                </button>
+                            </form>
+                        }
+                    }
+                    else
+                    {
+                        <div class="p-3 text-center text-muted">
+                            <p class="mb-0">No other registered users yet. Register a second account to test multi-user chat!</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <!-- SignalR Client -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
+
+    <script>
+        const activeConversationId = "@Model.ActiveConversationId";
+        const currentUserId = "@Model.CurrentUserId";
+        const recipientId = "@(Model.ActiveRecipient?.Id ?? "")";
+        const currentUserName = "@Model.CurrentUserName";
+
+        const messagesContainer = document.getElementById("chatMessagesContainer");
+        const messageInput = document.getElementById("messageInput");
+        const chatForm = document.getElementById("chatForm");
+
+        // Auto-scroll to bottom of messages
+        function scrollToBottom() {
+            if (messagesContainer) {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+        }
+        scrollToBottom();
+
+        // Search conversations filter
+        const searchInput = document.getElementById("chatSearchInput");
+        if (searchInput) {
+            searchInput.addEventListener("input", function (e) {
+                const query = e.target.value.toLowerCase().trim();
+                const items = document.querySelectorAll(".conversation-item");
+                items.forEach(item => {
+                    const name = item.getAttribute("data-name") || "";
+                    if (name.includes(query)) {
+                        item.parentElement.style.display = "";
+                    } else {
+                        item.parentElement.style.display = "none";
+                    }
+                });
+            });
+        }
+
+        // Initialize SignalR Connection
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/chatHub")
+            .withAutomaticReconnect()
+            .build();
+
+        // Listen for new messages
+        connection.on("ReceiveMessage", function (msg) {
+            if (msg.conversationId === activeConversationId) {
+                const noNotice = document.getElementById("noMessagesNotice");
+                if (noNotice) noNotice.remove();
+
+                const isMine = (msg.senderId === currentUserId);
+                const initial = msg.senderName ? msg.senderName.charAt(0).toUpperCase() : "U";
+
+                const wrapper = document.createElement("div");
+                wrapper.className = `message-bubble-wrapper ${isMine ? 'sent' : 'received'}`;
+                wrapper.setAttribute("data-msg-id", msg.id);
+
+                let avatarHtml = "";
+                if (!isMine) {
+                    avatarHtml = `<div class="message-avatar-small">${initial}</div>`;
+                }
+
+                const checkIcon = isMine ? `<i class="fas fa-check-double ms-1" style="font-size: 10px;"></i>` : "";
+
+                wrapper.innerHTML = `
+                    ${avatarHtml}
+                    <div>
+                        <div class="message-bubble">
+                            ${escapeHtml(msg.content)}
+                            <div class="message-meta">
+                                <span>${msg.sentAtDisplay}</span>
+                                ${checkIcon}
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                messagesContainer.appendChild(wrapper);
+                scrollToBottom();
+
+                // Update sidebar preview
+                const preview = document.getElementById(`preview-${msg.conversationId}`);
+                if (preview) {
+                    preview.textContent = msg.content;
+                }
+            }
+        });
+
+        // Listen for notification if message arrives in another conversation
+        connection.on("NewMessageNotification", function (msg) {
+            if (msg.conversationId !== activeConversationId) {
+                const preview = document.getElementById(`preview-${msg.conversationId}`);
+                if (preview) preview.textContent = msg.content;
+
+                let unreadBadge = document.getElementById(`unread-${msg.conversationId}`);
+                if (unreadBadge) {
+                    let count = parseInt(unreadBadge.textContent || "0") + 1;
+                    unreadBadge.textContent = count;
+                }
+            }
+        });
+
+        // Start connection and join active conversation group
+        connection.start().then(function () {
+            console.log("Connected to ChatHub");
+            if (activeConversationId) {
+                connection.invoke("JoinConversation", activeConversationId).catch(console.error);
+            }
+        }).catch(function (err) {
+            console.error("SignalR Connection Error: ", err.toString());
+        });
+
+        // Send message handler
+        if (chatForm && messageInput) {
+            chatForm.addEventListener("submit", function (e) {
+                e.preventDefault();
+                const content = messageInput.value.trim();
+                if (!content || !activeConversationId || !recipientId) return;
+
+                messageInput.value = "";
+                messageInput.focus();
+
+                connection.invoke("SendMessage", activeConversationId, recipientId, content)
+                    .catch(function (err) {
+                        console.error("Error sending message: ", err.toString());
+                    });
+            });
+        }
+
+        function escapeHtml(text) {
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return text.replace(/[&<>"']/g, function (m) { return map[m]; });
+        }
+    </script>
+}

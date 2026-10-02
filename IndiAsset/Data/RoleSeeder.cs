@@ -1,12 +1,16 @@
-﻿using Microsoft.AspNetCore.Identity;
+using AspNetCoreIdentity.MongoDriver.Models;
+using Microsoft.AspNetCore.Identity;
 
 namespace IndiAsset.Data
 {
-    public class RoleSeeder
+    public static class RoleSeeder
     {
         public static async Task SeedRolesAsync(
-           RoleManager<IdentityRole> roleManager)
+            IServiceProvider serviceProvider)
         {
+            var roleManager =
+                serviceProvider.GetRequiredService<RoleManager<MongoRole<string>>>();
+
             string[] roles =
             {
                 "Admin",
@@ -18,10 +22,9 @@ namespace IndiAsset.Data
                 if (!await roleManager.RoleExistsAsync(role))
                 {
                     await roleManager.CreateAsync(
-                        new IdentityRole(role));
+                        new MongoRole<string> { Name = role });
                 }
             }
         }
     }
 }
-

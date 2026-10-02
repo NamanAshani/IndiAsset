@@ -1,4 +1,4 @@
-﻿
+
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using System.Text.Json;
@@ -19,15 +19,14 @@ namespace IndiAsset.Models
 
         // Examples: Electronics, Vehicles, Machinery
         public string Category { get; set; } = string.Empty;
-        public string SubCategory { get; set; } = string.Empty;
 
         // Rent per day
+        [BsonRepresentation(BsonType.Decimal128)]
         public decimal DailyRent { get; set; }
 
+        [BsonRepresentation(BsonType.Decimal128)]
         public decimal SecurityDeposit { get; set; }
 
-        public string City { get; set; } = string.Empty;
-        public string Address { get; set; } = string.Empty;
 
         public List<AssetImage> Images { get; set; } = new();
 
