@@ -6,6 +6,8 @@ namespace IndiAsset.Models
         public string CurrentUserName { get; set; } = string.Empty;
         public string? ActiveConversationId { get; set; }
         public ApplicationUser? ActiveRecipient { get; set; }
+        public bool ActiveRecipientIsOnline { get; set; }
+        public DateTime? ActiveRecipientLastSeenAt { get; set; }
         public List<ConversationListItemViewModel> Conversations { get; set; } = new();
         public List<ChatMessageItemViewModel> Messages { get; set; } = new();
         public List<ApplicationUser> AvailableUsers { get; set; } = new();
@@ -21,6 +23,8 @@ namespace IndiAsset.Models
         public DateTime? LastMessageAt { get; set; }
         public int UnreadCount { get; set; }
         public bool IsSelected { get; set; }
+        public bool IsOnline { get; set; }
+        public DateTime? LastSeenAt { get; set; }
     }
 
     public class ChatMessageItemViewModel

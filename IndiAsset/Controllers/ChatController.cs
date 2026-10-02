@@ -12,11 +12,16 @@ namespace IndiAsset.Controllers
     {
         private readonly MongoDbService _mongoDbService;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly PresenceTracker _presenceTracker;
 
-        public ChatController(MongoDbService mongoDbService, UserManager<ApplicationUser> userManager)
+        public ChatController(
+            MongoDbService mongoDbService,
+            UserManager<ApplicationUser> userManager,
+            PresenceTracker presenceTracker)
         {
             _mongoDbService = mongoDbService;
             _userManager = userManager;
+            _presenceTracker = presenceTracker;
         }
 
         public async Task<IActionResult> Index(string? conversationId = null, string? recipientId = null)
@@ -43,6 +48,7 @@ namespace IndiAsset.Controllers
                     {
                         OwnerId = recipientId,
                         RenterId = currentUserId,
+                        ParticipantIds = new List<string> { recipientId, currentUserId },
                         CreatedAt = DateTime.UtcNow,
                         LastMessageAt = DateTime.UtcNow
                     };
@@ -54,7 +60,7 @@ namespace IndiAsset.Controllers
 
             // Fetch all conversations for current user
             var conversations = await _mongoDbService.Conversations
-                .Find(c => c.OwnerId == currentUserId || c.RenterId == currentUserId)
+                .Find(c => c.OwnerId == currentUserId || c.RenterId == currentUserId || c.ParticipantIds.Contains(currentUserId))
                 .SortByDescending(c => c.LastMessageAt)
                 .ToListAsync();
 
@@ -63,12 +69,34 @@ namespace IndiAsset.Controllers
             foreach (var conv in conversations)
             {
                 var otherUserId = conv.OwnerId == currentUserId ? conv.RenterId : conv.OwnerId;
+                if (string.IsNullOrEmpty(otherUserId) && conv.ParticipantIds != null)
+                {
+                    otherUserId = conv.ParticipantIds.FirstOrDefault(id => id != currentUserId) ?? string.Empty;
+                }
+
                 var otherUser = await _userManager.FindByIdAsync(otherUserId);
 
-                var lastMessage = await _mongoDbService.Messages
-                    .Find(m => m.ConversationId == conv.Id)
-                    .SortByDescending(m => m.SentAt)
-                    .FirstOrDefaultAsync();
+                string lastMessageContent = conv.LastMessageContent ?? string.Empty;
+                DateTime? lastMessageAt = conv.LastMessageAt;
+
+                if (string.IsNullOrEmpty(lastMessageContent))
+                {
+                    var lastMessage = await _mongoDbService.Messages
+                        .Find(m => m.ConversationId == conv.Id)
+                        .SortByDescending(m => m.SentAt)
+                        .FirstOrDefaultAsync();
+
+                    if (lastMessage != null)
+                    {
+                        lastMessageContent = lastMessage.Content;
+                        lastMessageAt = lastMessage.SentAt;
+                    }
+                    else
+                    {
+                        lastMessageContent = "No messages yet";
+                        lastMessageAt = conv.CreatedAt;
+                    }
+                }
 
                 var unreadCount = await _mongoDbService.Messages
                     .CountDocumentsAsync(m => m.ConversationId == conv.Id && m.ReceiverId == currentUserId && !m.IsRead);
@@ -77,16 +105,20 @@ namespace IndiAsset.Controllers
                     ? otherUser.FullName
                     : (otherUser?.UserName ?? "User");
 
+                var isOnline = await _presenceTracker.IsUserOnline(otherUserId);
+
                 conversationListItems.Add(new ConversationListItemViewModel
                 {
                     ConversationId = conv.Id ?? string.Empty,
                     OtherUserId = otherUserId,
                     OtherUserName = displayName,
                     OtherUserEmail = otherUser?.Email ?? string.Empty,
-                    LastMessageContent = lastMessage?.Content ?? "No messages yet",
-                    LastMessageAt = lastMessage?.SentAt ?? conv.CreatedAt,
+                    LastMessageContent = lastMessageContent,
+                    LastMessageAt = lastMessageAt,
                     UnreadCount = (int)unreadCount,
-                    IsSelected = conv.Id == conversationId
+                    IsSelected = conv.Id == conversationId,
+                    IsOnline = isOnline,
+                    LastSeenAt = otherUser?.LastSeenAt
                 });
             }
 
@@ -99,6 +131,7 @@ namespace IndiAsset.Controllers
 
             var messages = new List<ChatMessageItemViewModel>();
             ApplicationUser? activeRecipient = null;
+            bool activeRecipientIsOnline = false;
 
             if (!string.IsNullOrEmpty(conversationId))
             {
@@ -106,7 +139,16 @@ namespace IndiAsset.Controllers
                 if (activeConv != null)
                 {
                     var otherUserId = activeConv.OwnerId == currentUserId ? activeConv.RenterId : activeConv.OwnerId;
+                    if (string.IsNullOrEmpty(otherUserId) && activeConv.ParticipantIds != null)
+                    {
+                        otherUserId = activeConv.ParticipantIds.FirstOrDefault(id => id != currentUserId) ?? string.Empty;
+                    }
+
                     activeRecipient = await _userManager.FindByIdAsync(otherUserId);
+                    if (activeRecipient != null)
+                    {
+                        activeRecipientIsOnline = await _presenceTracker.IsUserOnline(activeRecipient.Id);
+                    }
 
                     var rawMessages = await _mongoDbService.Messages
                         .Find(m => m.ConversationId == conversationId)
@@ -156,6 +198,8 @@ namespace IndiAsset.Controllers
                 CurrentUserName = !string.IsNullOrWhiteSpace(currentUser.FullName) ? currentUser.FullName : currentUser.UserName ?? "You",
                 ActiveConversationId = conversationId,
                 ActiveRecipient = activeRecipient,
+                ActiveRecipientIsOnline = activeRecipientIsOnline,
+                ActiveRecipientLastSeenAt = activeRecipient?.LastSeenAt,
                 Conversations = conversationListItems,
                 Messages = messages,
                 AvailableUsers = allUsers
@@ -165,13 +209,19 @@ namespace IndiAsset.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetMessages(string conversationId)
+        public async Task<IActionResult> GetMessages(string conversationId, DateTime? after = null)
         {
             var currentUser = await _userManager.GetUserAsync(User);
             if (currentUser == null) return Unauthorized();
 
+            var filter = Builders<Message>.Filter.Eq(m => m.ConversationId, conversationId);
+            if (after.HasValue)
+            {
+                filter &= Builders<Message>.Filter.Gt(m => m.SentAt, after.Value);
+            }
+
             var rawMessages = await _mongoDbService.Messages
-                .Find(m => m.ConversationId == conversationId)
+                .Find(filter)
                 .SortBy(m => m.SentAt)
                 .ToListAsync();
 
@@ -212,6 +262,7 @@ namespace IndiAsset.Controllers
                 {
                     OwnerId = recipientId,
                     RenterId = currentUser.Id,
+                    ParticipantIds = new List<string> { recipientId, currentUser.Id },
                     CreatedAt = DateTime.UtcNow,
                     LastMessageAt = DateTime.UtcNow
                 };

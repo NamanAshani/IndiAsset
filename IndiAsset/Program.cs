@@ -25,6 +25,8 @@ var mongoDatabaseName =
 
 // Register MongoDbService
 builder.Services.AddSingleton<MongoDbService>();
+builder.Services.AddSingleton<PresenceTracker>();
+builder.Services.AddHostedService<MongoChangeStreamService>();
 
 // Register EmailSender
 builder.Services.AddTransient<IEmailSender, EmailSender>();

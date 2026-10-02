@@ -1,9 +1,9 @@
-
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
 namespace IndiAsset.Models
 {
+    [BsonIgnoreExtraElements]
     public class Message
     {
         [BsonId]

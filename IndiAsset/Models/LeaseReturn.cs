@@ -1,4 +1,4 @@
-﻿
+
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
@@ -21,8 +21,13 @@ namespace IndiAsset.Models
 
         public List<string> ReturnImageUrls { get; set; } = new();
 
+        [BsonRepresentation(BsonType.Decimal128)]
         public decimal DamageDeduction { get; set; }
+
+        [BsonRepresentation(BsonType.Decimal128)]
         public decimal OtherDeduction { get; set; }
+
+        [BsonRepresentation(BsonType.Decimal128)]
         public decimal RefundAmount { get; set; }
 
         public string? InspectionNotes { get; set; }

@@ -17,6 +17,7 @@
             border: 1px solid #e2e8f0;
             overflow: hidden;
             display: flex;
+            position: relative;
         }
 
         /* ----- Left Sidebar ----- */
@@ -126,14 +127,23 @@
         }
 
         .online-indicator {
-            width: 11px;
-            height: 11px;
-            background: #22c55e;
+            width: 12px;
+            height: 12px;
             border: 2px solid white;
             border-radius: 50%;
             position: absolute;
             bottom: 0;
             right: 0;
+            transition: background 0.3s ease;
+        }
+
+        .online-indicator.online {
+            background: #22c55e;
+            box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+        }
+
+        .online-indicator.offline {
+            background: #94a3b8;
         }
 
         .conversation-meta {
@@ -212,8 +222,12 @@
 
         .chat-header-info span {
             font-size: 0.8rem;
-            color: #22c55e;
+            color: #64748b;
             font-weight: 500;
+        }
+
+        .chat-header-info span.online-text {
+            color: #16a34a;
         }
 
         .chat-messages-container {
@@ -230,6 +244,12 @@
             align-items: flex-end;
             gap: 10px;
             max-width: 72%;
+            animation: fadeInMsg 0.2s ease-in-out;
+        }
+
+        @@keyframes fadeInMsg {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .message-bubble-wrapper.sent {
@@ -366,6 +386,37 @@
             margin-bottom: 20px;
         }
 
+        .chat-toast {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: #0f172a;
+            color: #ffffff;
+            padding: 12px 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            z-index: 1050;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: slideInToast 0.3s ease;
+        }
+
+        @@keyframes slideInToast {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .connection-status-pill {
+            font-size: 0.72rem;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+        .connection-status-pill.connected { background: #dcfce7; color: #15803d; }
+        .connection-status-pill.connecting { background: #fef9c3; color: #a16207; }
+        .connection-status-pill.error { background: #fee2e2; color: #b91c1c; }
+
         @@media (max-width: 768px) {
             .chat-app-container {
                 flex-direction: column;
@@ -379,13 +430,18 @@
     </style>
 }
 
-<div class="container py-3">
+<div class="container py-3 position-relative">
+    <div id="toastContainer"></div>
+
     <div class="chat-app-container">
 
         <!-- =================== LEFT SIDEBAR =================== -->
         <div class="chat-sidebar">
             <div class="chat-sidebar-header">
-                <h2><i class="fas fa-comments text-primary me-2"></i>Lease Chats</h2>
+                <div>
+                    <h2><i class="fas fa-comments text-primary me-2"></i>Lease Chats</h2>
+                    <span id="connectionBadge" class="connection-status-pill connecting"><i class="fas fa-circle-notch fa-spin me-1"></i>Connecting...</span>
+                </div>
                 <button type="button" class="btn btn-sm btn-primary-custom" data-bs-toggle="modal" data-bs-target="#newChatModal">
                     <i class="fas fa-plus me-1"></i> New Chat
                 </button>
@@ -404,28 +460,27 @@
                     @foreach (var conv in Model.Conversations)
                     {
                         var initial = !string.IsNullOrEmpty(conv.OtherUserName) ? conv.OtherUserName.Substring(0, 1).ToUpper() : "U";
-                        <li>
+                        <li id="conv-li-@conv.ConversationId">
                             <a asp-action="Index" asp-route-conversationId="@conv.ConversationId"
                                class="conversation-item @(conv.IsSelected ? "active" : "")"
                                data-name="@conv.OtherUserName.ToLower()"
-                               data-conv-id="@conv.ConversationId">
+                               data-conv-id="@conv.ConversationId"
+                               data-user-id="@conv.OtherUserId"
+                               id="conv-link-@conv.ConversationId">
                                 <div class="user-avatar">
                                     @initial
-                                    <span class="online-indicator"></span>
+                                    <span class="online-indicator @(conv.IsOnline ? "online" : "offline")" id="user-status-dot-@conv.OtherUserId"></span>
                                 </div>
                                 <div class="conversation-meta">
                                     <div class="conversation-header">
                                         <span class="conversation-name">@conv.OtherUserName</span>
-                                        <span class="conversation-time">
+                                        <span class="conversation-time" id="time-@conv.ConversationId">
                                             @(conv.LastMessageAt.HasValue ? conv.LastMessageAt.Value.ToLocalTime().ToString("hh:mm tt") : "")
                                         </span>
                                     </div>
                                     <div class="d-flex align-items-center justify-content-between">
                                         <p class="conversation-preview" id="preview-@conv.ConversationId">@conv.LastMessageContent</p>
-                                        @if (conv.UnreadCount > 0)
-                                        {
-                                            <span class="unread-pill" id="unread-@conv.ConversationId">@conv.UnreadCount</span>
-                                        }
+                                        <span class="unread-pill @(conv.UnreadCount > 0 ? "" : "d-none")" id="unread-@conv.ConversationId">@(conv.UnreadCount > 0 ? conv.UnreadCount.ToString() : "")</span>
                                     </div>
                                 </div>
                             </a>
@@ -434,7 +489,7 @@
                 }
                 else
                 {
-                    <li class="p-4 text-center text-muted">
+                    <li class="p-4 text-center text-muted" id="noConversationsPlaceholder">
                         <i class="fas fa-inbox fa-2x mb-2 text-secondary"></i>
                         <p class="small mb-2">No conversations yet.</p>
                         <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#newChatModal">
@@ -459,11 +514,20 @@
                     <div class="chat-header-user">
                         <div class="user-avatar me-3">
                             @recipientInitial
-                            <span class="online-indicator"></span>
+                            <span class="online-indicator @(Model.ActiveRecipientIsOnline ? "online" : "offline")" id="activeRecipientDot"></span>
                         </div>
                         <div class="chat-header-info">
                             <h3>@recipientName</h3>
-                            <span><i class="fas fa-circle me-1" style="font-size: 8px;"></i>Online • Asset Leasing Discussion</span>
+                            <span id="activeRecipientStatusText" class="@(Model.ActiveRecipientIsOnline ? "online-text" : "")">
+                                @if (Model.ActiveRecipientIsOnline)
+                                {
+                                    <i class="fas fa-circle text-success me-1" style="font-size: 8px;"></i><span>Online • Ready to chat</span>
+                                }
+                                else
+                                {
+                                    <i class="fas fa-circle text-muted me-1" style="font-size: 8px;"></i><span>Offline@(Model.ActiveRecipientLastSeenAt.HasValue ? $" • Last seen {Model.ActiveRecipientLastSeenAt.Value.ToLocalTime():MMM dd, hh:mm tt}" : "")</span>
+                                }
+                            </span>
                         </div>
                     </div>
                     <div>
@@ -589,19 +653,35 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
 
     <script>
-        const activeConversationId = "@Model.ActiveConversationId";
-        const currentUserId = "@Model.CurrentUserId";
-        const recipientId = "@(Model.ActiveRecipient?.Id ?? "")";
-        const currentUserName = "@Model.CurrentUserName";
+        // Safely serialize server variables as JSON to avoid syntax errors with quotes/nulls
+        const activeConversationId = @Html.Raw(Json.Serialize(Model.ActiveConversationId ?? ""));
+        const currentUserId = @Html.Raw(Json.Serialize(Model.CurrentUserId ?? ""));
+        const recipientId = @Html.Raw(Json.Serialize(Model.ActiveRecipient?.Id ?? ""));
+        const currentUserName = @Html.Raw(Json.Serialize(Model.CurrentUserName ?? "User"));
 
         const messagesContainer = document.getElementById("chatMessagesContainer");
         const messageInput = document.getElementById("messageInput");
         const chatForm = document.getElementById("chatForm");
+        const connectionBadge = document.getElementById("connectionBadge");
+
+        // Helper to update connection UI indicator
+        function setConnectionStatus(status, text) {
+            if (!connectionBadge) return;
+            connectionBadge.className = `connection-status-pill ${status}`;
+            if (status === 'connected') {
+                connectionBadge.innerHTML = '<i class="fas fa-circle text-success me-1" style="font-size: 7px;"></i>Live';
+            } else if (status === 'connecting') {
+                connectionBadge.innerHTML = '<i class="fas fa-circle-notch fa-spin me-1"></i>Connecting...';
+            } else {
+                connectionBadge.innerHTML = '<i class="fas fa-exclamation-circle me-1"></i>' + (text || 'Offline');
+            }
+        }
 
         // Auto-scroll to bottom of messages
         function scrollToBottom() {
-            if (messagesContainer) {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            const container = document.getElementById("chatMessagesContainer");
+            if (container) {
+                container.scrollTop = container.scrollHeight;
             }
         }
         scrollToBottom();
@@ -623,100 +703,360 @@
             });
         }
 
+        // Safe HTML escaping
+        function escapeHtml(text) {
+            if (text === null || text === undefined) return "";
+            return String(text).replace(/[&<>"']/g, function (m) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
+            });
+        }
+
+        // Normalize message payload regardless of camelCase vs PascalCase serialization
+        function normalizeMessage(msg) {
+            if (!msg) return null;
+            return {
+                id: msg.id || msg.Id || ("temp_" + Date.now()),
+                conversationId: msg.conversationId || msg.ConversationId || activeConversationId || "",
+                senderId: msg.senderId || msg.SenderId || currentUserId || "",
+                senderName: msg.senderName || msg.SenderName || currentUserName || "User",
+                receiverId: msg.receiverId || msg.ReceiverId || recipientId || "",
+                content: msg.content || msg.Content || "",
+                sentAt: msg.sentAt || msg.SentAt || new Date().toISOString(),
+                sentAtDisplay: msg.sentAtDisplay || msg.SentAtDisplay || msg.formattedTime || msg.FormattedTime || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                isRead: typeof msg.isRead !== 'undefined' ? msg.isRead : (typeof msg.IsRead !== 'undefined' ? msg.IsRead : false)
+            };
+        }
+
         // Initialize SignalR Connection
         const connection = new signalR.HubConnectionBuilder()
             .withUrl("/chatHub")
-            .withAutomaticReconnect()
+            .withAutomaticReconnect([0, 1000, 3000, 5000, 10000])
             .build();
 
-        // Listen for new messages
-        connection.on("ReceiveMessage", function (msg) {
-            if (msg.conversationId === activeConversationId) {
-                const noNotice = document.getElementById("noMessagesNotice");
-                if (noNotice) noNotice.remove();
+        // Handle Real-Time User Status Changes (Online / Offline)
+        connection.on("UserStatusChanged", function (userId, isOnline, lastSeen) {
+            const userDot = document.getElementById(`user-status-dot-${userId}`);
+            if (userDot) {
+                userDot.className = `online-indicator ${isOnline ? 'online' : 'offline'}`;
+            }
 
-                const isMine = (msg.senderId === currentUserId);
-                const initial = msg.senderName ? msg.senderName.charAt(0).toUpperCase() : "U";
+            if (userId === recipientId) {
+                const activeDot = document.getElementById("activeRecipientDot");
+                const activeText = document.getElementById("activeRecipientStatusText");
 
-                const wrapper = document.createElement("div");
-                wrapper.className = `message-bubble-wrapper ${isMine ? 'sent' : 'received'}`;
-                wrapper.setAttribute("data-msg-id", msg.id);
-
-                let avatarHtml = "";
-                if (!isMine) {
-                    avatarHtml = `<div class="message-avatar-small">${initial}</div>`;
+                if (activeDot) {
+                    activeDot.className = `online-indicator ${isOnline ? 'online' : 'offline'}`;
                 }
 
-                const checkIcon = isMine ? `<i class="fas fa-check-double ms-1" style="font-size: 10px;"></i>` : "";
+                if (activeText) {
+                    if (isOnline) {
+                        activeText.className = "online-text";
+                        activeText.innerHTML = '<i class="fas fa-circle text-success me-1" style="font-size: 8px;"></i><span>Online • Ready to chat</span>';
+                    } else {
+                        activeText.className = "";
+                        let lastSeenStr = "";
+                        if (lastSeen) {
+                            try {
+                                const dt = new Date(lastSeen);
+                                lastSeenStr = " • Last seen " + dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                            } catch (e) { }
+                        }
+                        activeText.innerHTML = `<i class="fas fa-circle text-muted me-1" style="font-size: 8px;"></i><span>Offline${lastSeenStr}</span>`;
+                    }
+                }
+            }
+        });
 
-                wrapper.innerHTML = `
-                    ${avatarHtml}
-                    <div>
-                        <div class="message-bubble">
-                            ${escapeHtml(msg.content)}
-                            <div class="message-meta">
-                                <span>${msg.sentAtDisplay}</span>
-                                ${checkIcon}
-                            </div>
+        // Function to render a message bubble in the active conversation
+        function renderMessage(rawMsg) {
+            const msg = normalizeMessage(rawMsg);
+            if (!msg || !msg.content) return;
+
+            const container = document.getElementById("chatMessagesContainer");
+            if (!container) return;
+
+            // Avoid duplicate rendering
+            if (msg.id && document.querySelector(`[data-msg-id="${msg.id}"]`)) {
+                return;
+            }
+
+            const noNotice = document.getElementById("noMessagesNotice");
+            if (noNotice) noNotice.remove();
+
+            const isMine = (msg.senderId && currentUserId && String(msg.senderId).toLowerCase() === String(currentUserId).toLowerCase());
+            const initial = msg.senderName ? msg.senderName.charAt(0).toUpperCase() : "U";
+
+            const wrapper = document.createElement("div");
+            wrapper.className = `message-bubble-wrapper ${isMine ? 'sent' : 'received'}`;
+            if (msg.id) wrapper.setAttribute("data-msg-id", msg.id);
+
+            let avatarHtml = "";
+            if (!isMine) {
+                avatarHtml = `<div class="message-avatar-small">${initial}</div>`;
+            }
+
+            const checkIcon = isMine ? `<i class="fas fa-check-double ms-1" style="font-size: 10px;"></i>` : "";
+
+            wrapper.innerHTML = `
+                ${avatarHtml}
+                <div>
+                    <div class="message-bubble">
+                        ${escapeHtml(msg.content)}
+                        <div class="message-meta">
+                            <span>${escapeHtml(msg.sentAtDisplay)}</span>
+                            ${checkIcon}
                         </div>
                     </div>
+                </div>
+            `;
+
+            container.appendChild(wrapper);
+            scrollToBottom();
+        }
+
+        // Function to update sidebar preview, timestamp, badge and reorder to top
+        function updateSidebarItem(rawMsg) {
+            const msg = normalizeMessage(rawMsg);
+            if (!msg || !msg.conversationId) return;
+
+            const list = document.getElementById("conversationList");
+            const placeholder = document.getElementById("noConversationsPlaceholder");
+            if (placeholder) placeholder.remove();
+
+            const convId = msg.conversationId;
+            let listItem = document.getElementById(`conv-li-${convId}`);
+
+            if (listItem) {
+                const preview = document.getElementById(`preview-${convId}`);
+                const time = document.getElementById(`time-${convId}`);
+
+                if (preview) preview.textContent = msg.content;
+                if (time && msg.sentAtDisplay) time.textContent = msg.sentAtDisplay;
+
+                const isCurrent = activeConversationId &&
+                    String(convId).toLowerCase() === String(activeConversationId).toLowerCase();
+
+                const isMine = msg.senderId && currentUserId &&
+                    String(msg.senderId).toLowerCase() === String(currentUserId).toLowerCase();
+
+                if (!isCurrent && !isMine) {
+                    let unreadBadge = document.getElementById(`unread-${convId}`);
+                    if (unreadBadge) {
+                        let currentCount = parseInt(unreadBadge.textContent || "0");
+                        unreadBadge.textContent = currentCount + 1;
+                        unreadBadge.classList.remove("d-none");
+                    }
+                }
+
+                if (list) {
+                    list.insertBefore(listItem, list.firstChild);
+                }
+            } else if (list) {
+                const senderName = msg.senderName || "User";
+                const initial = senderName.charAt(0).toUpperCase();
+
+                const newLi = document.createElement("li");
+                newLi.id = `conv-li-${convId}`;
+                newLi.innerHTML = `
+                    <a href="/Chat?conversationId=${convId}"
+                       class="conversation-item"
+                       data-name="${escapeHtml(senderName.toLowerCase())}"
+                       data-conv-id="${convId}"
+                       id="conv-link-${convId}">
+                        <div class="user-avatar">
+                            ${initial}
+                            <span class="online-indicator online" id="user-status-dot-${msg.senderId}"></span>
+                        </div>
+                        <div class="conversation-meta">
+                            <div class="conversation-header">
+                                <span class="conversation-name">${escapeHtml(senderName)}</span>
+                                <span class="conversation-time" id="time-${convId}">${escapeHtml(msg.sentAtDisplay)}</span>
+                            </div>
+                            <div class="d-flex align-items-center justify-content-between">
+                                <p class="conversation-preview" id="preview-${convId}">${escapeHtml(msg.content)}</p>
+                                <span class="unread-pill" id="unread-${convId}">1</span>
+                            </div>
+                        </div>
+                    </a>
                 `;
 
-                messagesContainer.appendChild(wrapper);
-                scrollToBottom();
-
-                // Update sidebar preview
-                const preview = document.getElementById(`preview-${msg.conversationId}`);
-                if (preview) {
-                    preview.textContent = msg.content;
-                }
+                list.insertBefore(newLi, list.firstChild);
             }
+        }
+
+        // Show a brief in-app toast notification
+        function showNotificationToast(msg) {
+            const container = document.getElementById("toastContainer");
+            if (!container) return;
+
+            const toast = document.createElement("div");
+            toast.className = "chat-toast";
+            toast.innerHTML = `
+                <i class="fas fa-comment-dots text-primary fa-lg"></i>
+                <div>
+                    <strong>${escapeHtml(msg.senderName || "New Message")}</strong>
+                    <div class="small text-light" style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(msg.content)}</div>
+                </div>
+                <a href="/Chat?conversationId=${msg.conversationId}" class="btn btn-sm btn-primary ms-2" style="font-size: 0.75rem; border-radius: 20px;">View</a>
+            `;
+
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.transition = "opacity 0.5s ease";
+                toast.style.opacity = "0";
+                setTimeout(() => toast.remove(), 500);
+            }, 4500);
+        }
+
+        // Listen for new messages via SignalR
+        connection.on("ReceiveMessage", function (rawMsg) {
+            console.log("ReceiveMessage event received:", rawMsg);
+            const msg = normalizeMessage(rawMsg);
+            if (!msg) return;
+
+            const isCurrentConversation = activeConversationId &&
+                String(msg.conversationId).toLowerCase() === String(activeConversationId).toLowerCase();
+
+            if (isCurrentConversation) {
+                renderMessage(msg);
+                if (msg.senderId !== currentUserId) {
+                    connection.invoke("MarkAsRead", msg.id, msg.conversationId).catch(console.error);
+                }
+            } else if (msg.senderId !== currentUserId) {
+                showNotificationToast(msg);
+            }
+
+            updateSidebarItem(msg);
         });
 
-        // Listen for notification if message arrives in another conversation
-        connection.on("NewMessageNotification", function (msg) {
-            if (msg.conversationId !== activeConversationId) {
-                const preview = document.getElementById(`preview-${msg.conversationId}`);
-                if (preview) preview.textContent = msg.content;
+        // Start connection & join active conversation group
+        function startSignalR() {
+            setConnectionStatus('connecting');
+            connection.start().then(function () {
+                console.log("Connected to ChatHub successfully");
+                setConnectionStatus('connected');
 
-                let unreadBadge = document.getElementById(`unread-${msg.conversationId}`);
-                if (unreadBadge) {
-                    let count = parseInt(unreadBadge.textContent || "0") + 1;
-                    unreadBadge.textContent = count;
+                if (activeConversationId) {
+                    connection.invoke("JoinConversation", activeConversationId).catch(console.error);
                 }
-            }
+
+                // Query initial online status of all users
+                connection.invoke("GetOnlineUsers").then(function (onlineUserIds) {
+                    if (onlineUserIds && Array.isArray(onlineUserIds)) {
+                        onlineUserIds.forEach(uid => {
+                            const userDot = document.getElementById(`user-status-dot-${uid}`);
+                            if (userDot) userDot.className = "online-indicator online";
+                            if (uid === recipientId) {
+                                const activeDot = document.getElementById("activeRecipientDot");
+                                const activeText = document.getElementById("activeRecipientStatusText");
+                                if (activeDot) activeDot.className = "online-indicator online";
+                                if (activeText) {
+                                    activeText.className = "online-text";
+                                    activeText.innerHTML = '<i class="fas fa-circle text-success me-1" style="font-size: 8px;"></i><span>Online • Ready to chat</span>';
+                                }
+                            }
+                        });
+                    }
+                }).catch(console.error);
+
+            }).catch(function (err) {
+                console.error("SignalR Connection Error: ", err.toString());
+                setConnectionStatus('error', 'Disconnected');
+            });
+        }
+
+        connection.onreconnecting(function (err) {
+            console.warn("SignalR Reconnecting: ", err);
+            setConnectionStatus('connecting');
         });
 
-        // Start connection and join active conversation group
-        connection.start().then(function () {
-            console.log("Connected to ChatHub");
+        connection.onreconnected(function (connectionId) {
+            console.log("Reconnected to ChatHub: " + connectionId);
+            setConnectionStatus('connected');
             if (activeConversationId) {
                 connection.invoke("JoinConversation", activeConversationId).catch(console.error);
             }
-        }).catch(function (err) {
-            console.error("SignalR Connection Error: ", err.toString());
+            connection.invoke("GetOnlineUsers").then(function (onlineUserIds) {
+                if (onlineUserIds && Array.isArray(onlineUserIds)) {
+                    onlineUserIds.forEach(uid => {
+                        const userDot = document.getElementById(`user-status-dot-${uid}`);
+                        if (userDot) userDot.className = "online-indicator online";
+                    });
+                }
+            }).catch(console.error);
         });
+
+        connection.onclose(function (err) {
+            console.warn("SignalR Connection Closed: ", err);
+            setConnectionStatus('error', 'Offline');
+        });
+
+        startSignalR();
 
         // Send message handler
         if (chatForm && messageInput) {
             chatForm.addEventListener("submit", function (e) {
                 e.preventDefault();
                 const content = messageInput.value.trim();
-                if (!content || !activeConversationId || !recipientId) return;
+                if (!content || !activeConversationId) return;
 
                 messageInput.value = "";
                 messageInput.focus();
 
-                connection.invoke("SendMessage", activeConversationId, recipientId, content)
+                connection.invoke("SendMessage", activeConversationId, recipientId || "", content)
+                    .then(function (rawPayload) {
+                        console.log("SendMessage response:", rawPayload);
+                        const payload = normalizeMessage(rawPayload);
+                        if (payload) {
+                            renderMessage(payload);
+                            updateSidebarItem(payload);
+                        }
+                    })
                     .catch(function (err) {
                         console.error("Error sending message: ", err.toString());
+                        alert("Could not send message. Please check connection: " + err.toString());
                     });
             });
         }
 
-        function escapeHtml(text) {
-            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-            return text.replace(/[&<>"']/g, function (m) { return map[m]; });
+        // ==============================================================
+        // CROSS-DEVICE REAL-TIME AUTO-SYNC (MONGODB ATLAS CLOUD SYNC)
+        // Automatically fetches and renders messages inserted by other
+        // devices or backend instances into MongoDB Atlas without reload!
+        // ==============================================================
+        let lastSyncTime = new Date(Date.now() - 15000).toISOString();
+        let isSyncing = false;
+
+        async function syncLatestMessages() {
+            if (!activeConversationId || isSyncing) return;
+            isSyncing = true;
+
+            try {
+                const url = `/Chat/GetMessages?conversationId=${encodeURIComponent(activeConversationId)}&after=${encodeURIComponent(lastSyncTime)}`;
+                const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                if (response.ok) {
+                    const messages = await response.json();
+                    if (Array.isArray(messages) && messages.length > 0) {
+                        messages.forEach(rawMsg => {
+                            const msg = normalizeMessage(rawMsg);
+                            if (msg) {
+                                renderMessage(msg);
+                                updateSidebarItem(msg);
+                                if (msg.sentAt && msg.sentAt > lastSyncTime) {
+                                    lastSyncTime = msg.sentAt;
+                                }
+                            }
+                        });
+                    }
+                }
+            } catch (err) {
+                // Silently wait for next interval
+            } finally {
+                isSyncing = false;
+            }
         }
+
+        // Poll MongoDB Atlas every 2 seconds for cross-device updates
+        setInterval(syncLatestMessages, 2000);
     </script>
 }

@@ -1,4 +1,4 @@
-﻿
+
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
@@ -16,7 +16,10 @@ namespace IndiAsset.Models
         public string PayerId { get; set; } = string.Empty;
         public string PayeeId { get; set; } = string.Empty;
 
+        [BsonRepresentation(BsonType.Decimal128)]
         public decimal RentAmount { get; set; }
+
+        [BsonRepresentation(BsonType.Decimal128)]
         public decimal DepositAmount { get; set; }
 
         public decimal TotalAmount =>
@@ -33,7 +36,10 @@ namespace IndiAsset.Models
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? PaidAt { get; set; }
 
+        [BsonRepresentation(BsonType.Decimal128)]
         public decimal DepositRefunded { get; set; }
+
+        [BsonRepresentation(BsonType.Decimal128)]
         public decimal DepositDeducted { get; set; }
     }
 }

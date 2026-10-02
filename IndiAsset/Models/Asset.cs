@@ -11,7 +11,7 @@ namespace IndiAsset.Models
         [BsonRepresentation(BsonType.ObjectId)]
         public string? Id { get; set; }
 
-        // SQL Server ApplicationUser.Id of the listing owner
+        // ApplicationUser.Id of the listing owner
         public string OwnerId { get; set; } = string.Empty;
 
         public string Title { get; set; } = string.Empty;
