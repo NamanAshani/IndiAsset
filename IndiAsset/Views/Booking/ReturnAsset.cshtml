@@ -1,0 +1,271 @@
+@model IndiAsset.Models.ReturnAssetUploadViewModel
+@{
+    ViewData["Title"] = "Return Asset & Upload Inspection Photos — IndiAsset";
+}
+
+@section Styles {
+    <style>
+        .upload-dropzone {
+            border: 2px dashed rgba(96, 165, 250, 0.4);
+            background: rgba(37, 99, 235, 0.04);
+            border-radius: 18px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .upload-dropzone:hover {
+            border-color: #3b82f6;
+            background: rgba(37, 99, 235, 0.08);
+        }
+
+        .baseline-photo-card {
+            border-radius: 14px;
+            overflow: hidden;
+            background: #1e2130;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            position: relative;
+        }
+
+        .rating-star-btn {
+            background: transparent;
+            border: none;
+            color: #475569;
+            font-size: 1.8rem;
+            cursor: pointer;
+            transition: color 0.15s;
+        }
+
+        .rating-star-btn.active {
+            color: #f59e0b;
+        }
+    </style>
+}
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+                <div>
+                    <a asp-action="MyBookings" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1 mb-2">
+                        <i class="fa-solid fa-arrow-left me-1"></i> Back to Leases
+                    </a>
+                    <h1 class="h2 fw-bold text-white mb-1">Return Asset &amp; Condition Inspection</h1>
+                    <p class="text-muted mb-0">Upload photos of the returned equipment to compare condition against the original pre-lease state.</p>
+                </div>
+                <span class="badge bg-primary bg-opacity-25 text-primary border border-primary border-opacity-25 rounded-pill px-3 py-2 fs-6">
+                    <i class="fa-solid fa-shield-check me-1"></i> Escrow Protected Return
+                </span>
+            </div>
+
+            <!-- Lease Overview Card -->
+            <div class="card border-0 rounded-4 shadow-sm p-4 mb-4" style="background-color: #1a1d27;">
+                <div class="row align-items-center g-3">
+                    <div class="col-md-2 text-center text-md-start">
+                        <div class="rounded-3 overflow-hidden bg-dark d-inline-block border border-secondary border-opacity-25" style="width: 100px; height: 100px;">
+                            @if (!string.IsNullOrEmpty(Model.PrimaryImageUrl))
+                            {
+                                <img src="@Model.PrimaryImageUrl" class="w-100 h-100 object-fit-cover" alt="@Model.AssetTitle" />
+                            }
+                            else
+                            {
+                                <div class="w-100 h-100 d-flex align-items-center justify-content-center text-muted">
+                                    <i class="fa-solid fa-cube fa-2x"></i>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <span class="badge bg-secondary bg-opacity-25 text-white rounded-pill px-2.5 py-1 mb-1">@Model.AssetCategory</span>
+                        <h4 class="fw-bold text-white mb-1">@Model.AssetTitle</h4>
+                        <p class="small text-muted mb-0">
+                            Owner: <strong class="text-white">@Model.OwnerName</strong> &bull;
+                            Renter: <strong class="text-white">@Model.RenterName</strong>
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <div class="small text-muted mb-1">
+                            <i class="fa-regular fa-calendar me-1"></i> @Model.TotalDays Days Lease
+                        </div>
+                        <div class="small text-muted mb-1">
+                            @Model.StartDate.ToString("dd MMM yyyy") &ndash; @Model.EndDate.ToString("dd MMM yyyy")
+                        </div>
+                        <div class="fw-bold text-primary fs-5">
+                            Deposit: ₹@Model.SecurityDeposit.ToString("N0")
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Return Inspection Form -->
+            <form method="post" enctype="multipart/form-data" asp-action="ReturnAsset">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="BookingId" />
+                <input type="hidden" asp-for="AssetId" />
+                <input type="hidden" asp-for="AssetTitle" />
+                <input type="hidden" asp-for="SecurityDeposit" />
+
+                <!-- 1. BASELINE ORIGINAL PHOTOS (BEFORE LEASE) -->
+                <div class="card border-0 rounded-4 shadow-sm p-4 mb-4" style="background-color: #1a1d27;">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <h5 class="fw-bold text-white mb-0">
+                            <i class="fa-solid fa-images text-info me-2"></i>1. Original Pre-Lease Photos (Baseline Condition)
+                        </h5>
+                        <span class="badge bg-info bg-opacity-10 text-info rounded-pill px-2.5 py-1">
+                            Certified Dispatch State
+                        </span>
+                    </div>
+                    <p class="text-muted small mb-3">
+                        These are the certified photos taken when the asset was listed and dispatched. Your post-use photos will be compared side-by-side against these:
+                    </p>
+
+                    <div class="row g-3">
+                        @if (Model.BaselineOriginalImageUrls.Any())
+                        {
+                            @foreach (var img in Model.BaselineOriginalImageUrls)
+                            {
+                                <div class="col-6 col-md-3">
+                                    <div class="baseline-photo-card h-100">
+                                        <img src="@img" class="w-100 object-fit-cover" style="height: 140px;" alt="Baseline condition" />
+                                        <div class="p-2 text-center small text-muted">
+                                            <i class="fa-solid fa-check-circle text-success me-1"></i> Original State
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="col-12 text-muted small">No baseline photos recorded for this asset.</div>
+                        }
+                    </div>
+                </div>
+
+                <!-- 2. POST-USE RETURN PHOTOS (AFTER LEASE) -->
+                <div class="card border-0 rounded-4 shadow-sm p-4 mb-4" style="background-color: #1a1d27;">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h5 class="fw-bold text-white mb-0">
+                            <i class="fa-solid fa-camera text-primary me-2"></i>2. Upload Post-Use Return Photos
+                        </h5>
+                        <span class="badge bg-warning bg-opacity-25 text-warning rounded-pill px-2.5 py-1">
+                            Required for Deposit Settlement
+                        </span>
+                    </div>
+                    <p class="text-muted small mb-3">
+                        Capture photos of the equipment now (front, controls, engine/body, overall view) to demonstrate its current working condition.
+                    </p>
+
+                    <div class="upload-dropzone mb-3" onclick="document.getElementById('returnFileInput').click();">
+                        <i class="fa-solid fa-cloud-arrow-up fa-3x text-primary mb-2"></i>
+                        <h6 class="fw-bold text-white mb-1">Click or drag photos to upload</h6>
+                        <p class="text-muted small mb-0">Support JPG, PNG, WEBP files up to 25MB each</p>
+                        <input type="file" id="returnFileInput" name="ReturnPhotos" multiple accept="image/*" class="d-none" onchange="previewReturnPhotos(this)" required />
+                    </div>
+
+                    <div id="photoPreviewContainer" class="row g-3 d-none">
+                        <!-- Dynamic photo previews will appear here -->
+                    </div>
+                    <span asp-validation-for="ReturnPhotos" class="text-danger small"></span>
+                </div>
+
+                <!-- 3. CONDITION ASSESSMENT & NOTES -->
+                <div class="card border-0 rounded-4 shadow-sm p-4 mb-4" style="background-color: #1a1d27;">
+                    <h5 class="fw-bold text-white mb-3">
+                        <i class="fa-solid fa-clipboard-check text-success me-2"></i>3. Operational Condition Notes
+                    </h5>
+                    <div class="mb-3">
+                        <label class="form-label text-muted small fw-semibold">Condition Status &amp; Return Remarks</label>
+                        <textarea asp-for="ConditionNotes" class="form-control rounded-3" rows="3"
+                                  placeholder="e.g. Asset returned in full working order, fuel tank refilled, cleaned after site use, all attachments intact."></textarea>
+                    </div>
+                </div>
+
+                <!-- 4. RATING & REVIEW -->
+                <div class="card border-0 rounded-4 shadow-sm p-4 mb-4" style="background-color: #1a1d27;">
+                    <h5 class="fw-bold text-white mb-2">
+                        <i class="fa-solid fa-star text-warning me-2"></i>4. Review Your Asset Leasing Experience
+                    </h5>
+                    <p class="text-muted small mb-3">Rate how smoothly the equipment performed during your lease.</p>
+
+                    <div class="mb-3 text-center py-2">
+                        <input type="hidden" asp-for="Rating" id="ratingInput" value="5" />
+                        <div class="d-inline-flex gap-2" id="starRatingGroup">
+                            <button type="button" class="rating-star-btn active" data-score="1" onclick="setRating(1)"><i class="fa-solid fa-star"></i></button>
+                            <button type="button" class="rating-star-btn active" data-score="2" onclick="setRating(2)"><i class="fa-solid fa-star"></i></button>
+                            <button type="button" class="rating-star-btn active" data-score="3" onclick="setRating(3)"><i class="fa-solid fa-star"></i></button>
+                            <button type="button" class="rating-star-btn active" data-score="4" onclick="setRating(4)"><i class="fa-solid fa-star"></i></button>
+                            <button type="button" class="rating-star-btn active" data-score="5" onclick="setRating(5)"><i class="fa-solid fa-star"></i></button>
+                        </div>
+                        <div class="small text-warning fw-semibold mt-1" id="ratingText">5 Stars — Excellent Performance</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted small fw-semibold">Write Your Review</label>
+                        <textarea asp-for="ReviewComment" class="form-control rounded-3" rows="3" required
+                                  placeholder="Share how the equipment functioned, owner responsiveness, and delivery experience..."></textarea>
+                        <span asp-validation-for="ReviewComment" class="text-danger small"></span>
+                    </div>
+                </div>
+
+                <!-- SUBMIT BUTTON -->
+                <div class="d-flex justify-content-between align-items-center pt-2">
+                    <a asp-action="MyBookings" class="btn btn-outline-secondary rounded-pill px-4 py-2.5">
+                        Cancel
+                    </a>
+                    <button type="submit" class="btn btn-primary rounded-pill px-5 py-2.5 fw-semibold shadow-sm fs-6">
+                        <i class="fa-solid fa-code-compare me-1"></i> Submit &amp; Generate Photo Comparison Report
+                    </button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    function setRating(val) {
+        document.getElementById('ratingInput').value = val;
+        const btns = document.querySelectorAll('.rating-star-btn');
+        btns.forEach((btn, idx) => {
+            if (idx < val) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+
+        const labels = [
+            "1 Star — Unsatisfactory",
+            "2 Stars — Below Average",
+            "3 Stars — Average Condition",
+            "4 Stars — Good Equipment",
+            "5 Stars — Excellent Performance"
+        ];
+        document.getElementById('ratingText').innerText = labels[val - 1];
+    }
+
+    function previewReturnPhotos(input) {
+        const container = document.getElementById('photoPreviewContainer');
+        container.innerHTML = '';
+        if (input.files && input.files.length > 0) {
+            container.classList.remove('d-none');
+            Array.from(input.files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const col = document.createElement('div');
+                    col.className = 'col-6 col-md-3';
+                    col.innerHTML = `
+                        <div class="rounded-3 overflow-hidden bg-dark border border-primary border-opacity-50 position-relative" style="height: 140px;">
+                            <img src="${e.target.result}" class="w-100 h-100 object-fit-cover" />
+                            <span class="badge bg-primary position-absolute bottom-0 start-0 m-1.5 small">Return Photo</span>
+                        </div>
+                    `;
+                    container.appendChild(col);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+    }
+</script>

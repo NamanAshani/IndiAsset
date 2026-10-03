@@ -208,6 +208,45 @@ namespace IndiAsset.Controllers
 
             var defaultEndDate = defaultStartDate.AddDays(3);
 
+            var ownerPendingBookings = new List<BookingItemViewModel>();
+            if (isOwner && !string.IsNullOrEmpty(asset.Id))
+            {
+                var bookingsForAsset = await _mongoDbService.Bookings
+                    .Find(b => b.AssetId == asset.Id && b.Status == BookingStatus.Pending)
+                    .SortByDescending(b => b.CreatedAt)
+                    .ToListAsync();
+
+                var renterIds = bookingsForAsset.Select(b => b.RenterId).Distinct().ToList();
+                var renters = await _mongoDbService.Bookings.Database
+                    .GetCollection<ApplicationUser>("Users")
+                    .Find(u => renterIds.Contains(u.Id))
+                    .ToListAsync();
+
+                var renterMap = renters.ToDictionary(
+                    u => u.Id,
+                    u => !string.IsNullOrWhiteSpace(u.FullName) ? u.FullName : (u.Email ?? "Renter")
+                );
+
+                ownerPendingBookings = bookingsForAsset.Select(b => new BookingItemViewModel
+                {
+                    BookingId = b.Id ?? string.Empty,
+                    AssetId = b.AssetId,
+                    AssetTitle = b.AssetTitle ?? asset.Title,
+                    AssetImageUrl = b.AssetImageUrl,
+                    OtherUserId = b.RenterId,
+                    OtherUserName = renterMap.GetValueOrDefault(b.RenterId, "Renter"),
+                    StartDate = b.StartDate,
+                    EndDate = b.EndDate,
+                    DailyRent = b.DailyRent,
+                    TotalRent = b.TotalRent,
+                    SecurityDeposit = b.SecurityDeposit,
+                    TotalAmount = b.TotalAmount,
+                    Status = b.Status,
+                    CreatedAt = b.CreatedAt,
+                    IsOwner = true
+                }).ToList();
+            }
+
             var viewModel = new AssetDetailsViewModel
             {
                 Asset = asset,
@@ -217,12 +256,14 @@ namespace IndiAsset.Controllers
                 AvailableFrom = availability.AvailableFrom,
                 ActiveBookingsCount = availability.ActiveBookingsCount,
                 ConfirmedBookings = availability.ConfirmedBookings,
+                OwnerPendingBookings = ownerPendingBookings,
                 IsOwner = isOwner,
                 CanBook = !isOwner && User.Identity?.IsAuthenticated == true,
                 BookingForm = new BookingCreateViewModel
                 {
                     AssetId = asset.Id ?? string.Empty,
                     StartDate = defaultStartDate,
+                    NumberOfDays = 3,
                     EndDate = defaultEndDate
                 }
             };
@@ -536,7 +577,73 @@ namespace IndiAsset.Controllers
                 };
             }).ToList();
 
-            return View(cardViewModels);
+            // Fetch incoming bookings for this owner
+            var ownerBookings = await _mongoDbService.Bookings
+                .Find(b => b.OwnerId == currentUserId)
+                .SortByDescending(b => b.CreatedAt)
+                .ToListAsync();
+
+            var renterIds = ownerBookings.Select(b => b.RenterId).Distinct().ToList();
+            var renters = await _mongoDbService.Bookings.Database
+                .GetCollection<ApplicationUser>("Users")
+                .Find(u => renterIds.Contains(u.Id))
+                .ToListAsync();
+
+            var renterMap = renters.ToDictionary(
+                u => u.Id,
+                u => !string.IsNullOrWhiteSpace(u.FullName) ? u.FullName : (u.Email ?? "Renter")
+            );
+
+            var pendingInquiries = ownerBookings
+                .Where(b => b.Status == BookingStatus.Pending)
+                .Select(b => new BookingItemViewModel
+                {
+                    BookingId = b.Id ?? string.Empty,
+                    AssetId = b.AssetId,
+                    AssetTitle = b.AssetTitle ?? "Equipment",
+                    AssetImageUrl = b.AssetImageUrl,
+                    OtherUserId = b.RenterId,
+                    OtherUserName = renterMap.GetValueOrDefault(b.RenterId, "Renter"),
+                    StartDate = b.StartDate,
+                    EndDate = b.EndDate,
+                    DailyRent = b.DailyRent,
+                    TotalRent = b.TotalRent,
+                    SecurityDeposit = b.SecurityDeposit,
+                    TotalAmount = b.TotalAmount,
+                    Status = b.Status,
+                    CreatedAt = b.CreatedAt,
+                    IsOwner = true
+                }).ToList();
+
+            var activeLeases = ownerBookings
+                .Where(b => b.Status == BookingStatus.Active || b.Status == BookingStatus.Approved)
+                .Select(b => new BookingItemViewModel
+                {
+                    BookingId = b.Id ?? string.Empty,
+                    AssetId = b.AssetId,
+                    AssetTitle = b.AssetTitle ?? "Equipment",
+                    AssetImageUrl = b.AssetImageUrl,
+                    OtherUserId = b.RenterId,
+                    OtherUserName = renterMap.GetValueOrDefault(b.RenterId, "Renter"),
+                    StartDate = b.StartDate,
+                    EndDate = b.EndDate,
+                    DailyRent = b.DailyRent,
+                    TotalRent = b.TotalRent,
+                    SecurityDeposit = b.SecurityDeposit,
+                    TotalAmount = b.TotalAmount,
+                    Status = b.Status,
+                    CreatedAt = b.CreatedAt,
+                    IsOwner = true
+                }).ToList();
+
+            var dashboard = new MyAssetsDashboardViewModel
+            {
+                Assets = cardViewModels,
+                PendingInquiries = pendingInquiries,
+                ActiveLeases = activeLeases
+            };
+
+            return View(dashboard);
         }
 
         // ======================================================

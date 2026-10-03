@@ -1,0 +1,278 @@
+@model IndiAsset.Models.InspectionReviewViewModel
+@{
+    ViewData["Title"] = "Asset Condition Inspection & Photo Comparison — IndiAsset";
+}
+
+@section Styles {
+    <style>
+        .comparison-container {
+            background: #1a1d27;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            overflow: hidden;
+        }
+
+        .comparison-panel {
+            background: #1e2130;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            overflow: hidden;
+            height: 100%;
+        }
+
+        .comparison-img-wrap {
+            height: 280px;
+            width: 100%;
+            background: #0f1117;
+            position: relative;
+        }
+
+        .comparison-img-wrap img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .metric-badge {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 14px 18px;
+        }
+    </style>
+}
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-11">
+
+            <!-- Header -->
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+                <div>
+                    <a asp-action="MyBookings" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1 mb-2">
+                        <i class="fa-solid fa-arrow-left me-1"></i> Back to Leases
+                    </a>
+                    <h1 class="h2 fw-bold text-white mb-1">Asset Return Inspection &amp; Photo Comparison</h1>
+                    <p class="text-muted mb-0">Visual comparison of equipment condition: Original baseline photos vs. post-lease returned photos.</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-light rounded-pill px-3 py-2 small" onclick="window.print()">
+                        <i class="fa-solid fa-print me-1"></i> Print Report
+                    </button>
+                    <a asp-controller="Chat" asp-action="Index" asp-route-recipientId="@(Model.IsOwner ? Model.Booking.RenterId : Model.Booking.OwnerId)" class="btn btn-primary rounded-pill px-4 py-2 fw-semibold">
+                        <i class="fa-regular fa-comments me-1"></i> Open Chat
+                    </a>
+                </div>
+            </div>
+
+            <!-- Health & Settlement Summary Banner -->
+            <div class="card border-0 rounded-4 shadow-sm p-4 mb-4" style="background: linear-gradient(135deg, #1e2640 0%, #1a1d27 100%); border: 1px solid rgba(96, 165, 250, 0.25)!important;">
+                <div class="row align-items-center g-4">
+                    <div class="col-md-3 text-center border-end border-secondary border-opacity-25">
+                        <div class="display-4 fw-bold text-success mb-0">@Model.ConditionScore%</div>
+                        <span class="badge bg-success bg-opacity-25 text-success rounded-pill px-3 py-1 fw-bold mt-1">
+                            <i class="fa-solid fa-circle-check me-1"></i> Excellent Condition
+                        </span>
+                        <small class="text-muted d-block mt-2">Overall Quality Score</small>
+                    </div>
+
+                    <div class="col-md-5">
+                        <h4 class="fw-bold text-white mb-1">@Model.Asset.Title</h4>
+                        <p class="text-muted small mb-2">
+                            Lease: <strong>@Model.Booking.StartDate.ToString("dd MMM yyyy") &ndash; @Model.Booking.EndDate.ToString("dd MMM yyyy")</strong> (@Model.Booking.TotalDays Days)
+                        </p>
+                        <div class="d-flex flex-wrap gap-2">
+                            <span class="badge bg-secondary bg-opacity-25 text-white border border-secondary border-opacity-25 small">
+                                Cleanliness: @Model.CleanlinessStatus
+                            </span>
+                            <span class="badge bg-secondary bg-opacity-25 text-white border border-secondary border-opacity-25 small">
+                                Operations: @Model.FunctionalStatus
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4 text-md-end">
+                        <span class="small text-muted d-block mb-1">Security Deposit Status</span>
+                        <div class="fs-4 fw-bold text-primary mb-1">
+                            ₹@Model.RecommendedRefundAmount.ToString("N0") Full Refund
+                        </div>
+                        <span class="badge bg-success text-white rounded-pill px-3 py-1.5 fw-semibold small">
+                            <i class="fa-solid fa-lock-open me-1"></i> Escrow Deposit Cleared
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ====================================================== -->
+            <!-- SIDE-BY-SIDE VISUAL PHOTO COMPARISON -->
+            <!-- ====================================================== -->
+            <div class="comparison-container p-4 mb-4">
+                <div class="d-flex align-items-center justify-content-between mb-4">
+                    <div>
+                        <h4 class="fw-bold text-white mb-1">
+                            <i class="fa-solid fa-code-compare text-primary me-2"></i>Side-by-Side Photo Comparison
+                        </h4>
+                        <p class="text-muted small mb-0">Compare the asset's pre-lease dispatch condition directly against the returned inspection photos.</p>
+                    </div>
+                    <span class="badge bg-primary rounded-pill px-3 py-2 fw-semibold">
+                        Side-by-Side Analysis
+                    </span>
+                </div>
+
+                @{
+                    var maxCount = Math.Max(Model.BaselineImages.Count, Model.ReturnImages.Count);
+                }
+
+                @for (int i = 0; i < maxCount; i++)
+                {
+                    var baselineImg = i < Model.BaselineImages.Count ? Model.BaselineImages[i] : Model.BaselineImages.FirstOrDefault();
+                    var returnImg = i < Model.ReturnImages.Count ? Model.ReturnImages[i] : Model.ReturnImages.FirstOrDefault();
+
+                    <div class="row g-4 mb-4">
+                        <!-- Left: Original Before Lease -->
+                        <div class="col-md-6">
+                            <div class="comparison-panel">
+                                <div class="p-3 border-bottom border-secondary border-opacity-25 d-flex align-items-center justify-content-between">
+                                    <span class="badge bg-info bg-opacity-25 text-info border border-info border-opacity-25 rounded-pill px-2.5 py-1 fw-bold">
+                                        <i class="fa-solid fa-camera-retro me-1"></i> BEFORE LEASE (Original Photo)
+                                    </span>
+                                    <small class="text-muted">Dispatch Baseline #@(i + 1)</small>
+                                </div>
+                                <div class="comparison-img-wrap">
+                                    @if (!string.IsNullOrEmpty(baselineImg))
+                                    {
+                                        <img src="@baselineImg" alt="Original Condition Baseline" />
+                                    }
+                                    else
+                                    {
+                                        <div class="d-flex align-items-center justify-content-center h-100 text-muted">
+                                            <i class="fa-solid fa-cube fa-3x"></i>
+                                        </div>
+                                    }
+                                </div>
+                                <div class="p-3 small text-muted">
+                                    <i class="fa-solid fa-circle-check text-info me-1"></i> Certified original listing image &bull; Clean initial condition
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right: Post-Use Return -->
+                        <div class="col-md-6">
+                            <div class="comparison-panel">
+                                <div class="p-3 border-bottom border-secondary border-opacity-25 d-flex align-items-center justify-content-between">
+                                    <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25 rounded-pill px-2.5 py-1 fw-bold">
+                                        <i class="fa-solid fa-camera me-1"></i> AFTER LEASE (Returned Photo)
+                                    </span>
+                                    <small class="text-muted">Return Inspection #@(i + 1)</small>
+                                </div>
+                                <div class="comparison-img-wrap">
+                                    @if (!string.IsNullOrEmpty(returnImg))
+                                    {
+                                        <img src="@returnImg" alt="Return Inspection Photo" />
+                                    }
+                                    else
+                                    {
+                                        <div class="d-flex align-items-center justify-content-center h-100 text-muted">
+                                            <i class="fa-solid fa-image fa-3x"></i>
+                                        </div>
+                                    }
+                                </div>
+                                <div class="p-3 small text-muted">
+                                    <i class="fa-solid fa-circle-check text-success me-1"></i> Uploaded upon return &bull; Verified zero structural damage
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                @if (!Model.BaselineImages.Any() && !Model.ReturnImages.Any())
+                {
+                    <div class="p-5 text-center text-muted">
+                        <i class="fa-solid fa-images fa-3x mb-3 text-secondary opacity-50"></i>
+                        <p>No comparison images available for this lease.</p>
+                    </div>
+                }
+            </div>
+
+            <!-- Return Remarks & Inspection Log -->
+            <div class="card border-0 rounded-4 shadow-sm p-4 mb-4" style="background-color: #1a1d27;">
+                <h5 class="fw-bold text-white mb-3">
+                    <i class="fa-solid fa-clipboard-list text-primary me-2"></i>Return Inspection Remarks
+                </h5>
+                <div class="p-3 rounded-3 bg-dark border border-secondary border-opacity-25 text-light small mb-3">
+                    @(Model.LeaseReturn?.ConditionAfter ?? "Asset returned in clean, operational condition with verified photos.")
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="metric-badge">
+                            <span class="text-muted small d-block mb-1">Returned At</span>
+                            <span class="fw-semibold text-white">@(Model.LeaseReturn?.ReturnedAt?.ToLocalTime().ToString("dd MMM yyyy, hh:mm tt") ?? DateTime.Now.ToString("dd MMM yyyy"))</span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="metric-badge">
+                            <span class="text-muted small d-block mb-1">Damage Deductions</span>
+                            <span class="fw-semibold text-success">₹@(Model.LeaseReturn?.DamageDeduction.ToString("N0") ?? "0") (Zero Deductions)</span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="metric-badge">
+                            <span class="text-muted small d-block mb-1">Escrow Settlement</span>
+                            <span class="fw-semibold text-primary">₹@(Model.RecommendedRefundAmount.ToString("N0")) Refund Approved</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ====================================================== -->
+            <!-- USER RATING & REVIEW CARD -->
+            <!-- ====================================================== -->
+            @if (Model.Review != null)
+            {
+                <div class="card border-0 rounded-4 shadow-sm p-4 mb-4" style="background-color: #1a1d27;">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <h5 class="fw-bold text-white mb-0">
+                            <i class="fa-solid fa-star text-warning me-2"></i>Renter Experience Review
+                        </h5>
+                        <div class="text-warning fs-5">
+                            @for (int s = 1; s <= 5; s++)
+                            {
+                                if (s <= Model.Review.Rating)
+                                {
+                                    <i class="fa-solid fa-star"></i>
+                                }
+                                else
+                                {
+                                    <i class="fa-regular fa-star text-secondary"></i>
+                                }
+                            }
+                            <span class="text-white small fw-bold ms-2">(@Model.Review.Rating / 5)</span>
+                        </div>
+                    </div>
+
+                    <div class="p-3.5 rounded-3 bg-dark border border-secondary border-opacity-25 mb-3">
+                        <p class="text-light mb-0 fs-6 fst-italic">
+                            &ldquo;@Model.Review.Comment&rdquo;
+                        </p>
+                    </div>
+
+                    <div class="d-flex align-items-center justify-content-between small text-muted">
+                        <div>
+                            Reviewed by: <strong class="text-white">@Model.RenterName</strong>
+                        </div>
+                        <div>
+                            @Model.Review.CreatedAt.ToLocalTime().ToString("dd MMMM yyyy")
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <div class="text-center pt-2">
+                <a asp-action="MyBookings" class="btn btn-outline-primary rounded-pill px-5 py-2.5 fw-semibold">
+                    <i class="fa-solid fa-arrow-left me-1"></i> Return to Leases Dashboard
+                </a>
+            </div>
+
+        </div>
+    </div>
+</div>

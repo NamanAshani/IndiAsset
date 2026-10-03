@@ -1,6 +1,16 @@
-@model IndiAsset.Models.MyBookingsViewModel
+﻿@model IndiAsset.Models.MyBookingsViewModel
+@using IndiAsset.Models
 @{
     ViewData["Title"] = "My Leases & Bookings — IndiAsset";
+
+    bool isOwnerTab = string.Equals(Model.ActiveTab, "owner", StringComparison.OrdinalIgnoreCase);
+
+    string renterTabClass  = isOwnerTab ? "nav-link d-flex align-items-center justify-content-center gap-2"
+                                        : "nav-link active d-flex align-items-center justify-content-center gap-2";
+    string ownerTabClass   = isOwnerTab ? "nav-link active d-flex align-items-center justify-content-center gap-2"
+                                        : "nav-link d-flex align-items-center justify-content-center gap-2";
+    string renterPaneClass = isOwnerTab ? "tab-pane fade" : "tab-pane fade show active";
+    string ownerPaneClass  = isOwnerTab ? "tab-pane fade show active" : "tab-pane fade";
 }
 
 @section Styles {
@@ -11,27 +21,23 @@
             border-radius: 20px;
             transition: all 0.25s;
         }
-
         .booking-card:hover {
             border-color: rgba(96, 165, 250, 0.35);
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
             transform: translateY(-2px);
         }
-
         .booking-info-box {
             background: #1e2130;
             border: 1px solid rgba(255, 255, 255, 0.06);
             border-radius: 14px;
             padding: 14px 16px;
         }
-
         .nav-pills-dark {
             background: #1a1d27;
             border: 1px solid rgba(255, 255, 255, 0.08);
             padding: 6px;
             border-radius: 50px;
         }
-
         .nav-pills-dark .nav-link {
             border-radius: 40px;
             color: #94a3b8;
@@ -39,13 +45,11 @@
             padding: 10px 20px;
             transition: all 0.2s;
         }
-
         .nav-pills-dark .nav-link.active {
             background: #2563eb;
             color: #ffffff;
             box-shadow: 0 4px 15px rgba(37, 99, 235, 0.35);
         }
-
         .nav-pills-dark .nav-link:hover:not(.active) {
             color: #ffffff;
             background: rgba(255, 255, 255, 0.05);
@@ -54,7 +58,6 @@
 }
 
 <div class="container py-4">
-    <!-- Header -->
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
         <div>
             <h1 class="h2 fw-bold text-white mb-1">Lease Agreements &amp; Bookings</h1>
@@ -65,7 +68,6 @@
         </a>
     </div>
 
-    <!-- Alert notifications -->
     @if (TempData["SuccessMessage"] != null)
     {
         <div class="alert alert-success alert-dismissible fade show rounded-3 shadow-sm mb-4" role="alert">
@@ -81,38 +83,27 @@
         </div>
     }
 
-    <!-- Dual Persona Navigation Tabs -->
     <ul class="nav nav-pills nav-pills-dark nav-fill mb-4" id="bookingTabs" role="tablist">
         <li class="nav-item" role="presentation">
-            <button class="nav-link active d-flex align-items-center justify-content-center gap-2"
-                    id="renter-tab"
-                    data-bs-toggle="tab"
-                    data-bs-target="#renter-content"
-                    type="button"
-                    role="tab">
+            <button class="@renterTabClass" id="renter-tab" data-bs-toggle="tab" data-bs-target="#renter-content" type="button" role="tab">
                 <i class="fa-solid fa-handshake-simple"></i>
-                <span>Assets I'm Leasing (Renter)</span>
+                <span>Assets I am Leasing (Renter)</span>
                 <span class="badge bg-primary text-white rounded-pill px-2">@Model.AsRenterBookings.Count</span>
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link d-flex align-items-center justify-content-center gap-2"
-                    id="owner-tab"
-                    data-bs-toggle="tab"
-                    data-bs-target="#owner-content"
-                    type="button"
-                    role="tab">
+            <button class="@ownerTabClass" id="owner-tab" data-bs-toggle="tab" data-bs-target="#owner-content" type="button" role="tab">
                 <i class="fa-solid fa-building-circle-check"></i>
                 <span>Lease Inquiries for My Assets (Owner)</span>
-                <span class="badge bg-secondary text-white rounded-pill px-2">@Model.AsOwnerBookings.Count</span>
+                <span class="badge bg-warning text-dark rounded-pill px-2">@Model.AsOwnerBookings.Count</span>
             </button>
         </li>
     </ul>
 
-    <!-- Tab Contents -->
     <div class="tab-content" id="bookingTabsContent">
+
         <!-- TAB 1: AS RENTER -->
-        <div class="tab-pane fade show active" id="renter-content" role="tabpanel">
+        <div class="@renterPaneClass" id="renter-content" role="tabpanel">
             @if (Model.AsRenterBookings.Any())
             {
                 <div class="row g-4">
@@ -122,34 +113,31 @@
                             <div class="booking-card h-100 overflow-hidden">
                                 <div class="card-body p-4 d-flex flex-column">
                                     <div class="d-flex align-items-center justify-content-between mb-3">
-                                        <span class="badge bg-secondary bg-opacity-25 text-white border border-secondary border-opacity-25 rounded-pill px-3 py-1.5">
-                                            @item.Category
-                                        </span>
+                                        <span class="badge bg-secondary bg-opacity-25 text-white border border-secondary border-opacity-25 rounded-pill px-3 py-1">@item.Category</span>
                                         @switch (item.Status)
                                         {
                                             case BookingStatus.Pending:
-                                                <span class="badge bg-warning text-dark rounded-pill px-3 py-1.5 fw-semibold"><i class="fa-solid fa-hourglass-half me-1"></i> Awaiting Approval</span>
+                                                <span class="badge bg-warning text-dark rounded-pill px-3 py-1 fw-semibold"><i class="fa-solid fa-hourglass-half me-1"></i> Awaiting Approval</span>
                                                 break;
                                             case BookingStatus.Approved:
-                                                <span class="badge bg-info text-dark rounded-pill px-3 py-1.5 fw-semibold"><i class="fa-solid fa-check me-1"></i> Approved</span>
+                                                <span class="badge bg-info text-dark rounded-pill px-3 py-1 fw-semibold"><i class="fa-solid fa-check me-1"></i> Approved</span>
                                                 break;
                                             case BookingStatus.Active:
-                                                <span class="badge bg-success rounded-pill px-3 py-1.5"><i class="fa-solid fa-circle-play me-1"></i> Active On Lease</span>
+                                                <span class="badge bg-success rounded-pill px-3 py-1"><i class="fa-solid fa-circle-play me-1"></i> Active On Lease</span>
                                                 break;
                                             case BookingStatus.Completed:
-                                                <span class="badge bg-secondary rounded-pill px-3 py-1.5"><i class="fa-solid fa-circle-check me-1"></i> Returned &amp; Closed</span>
+                                                <span class="badge bg-secondary rounded-pill px-3 py-1"><i class="fa-solid fa-circle-check me-1"></i> Returned &amp; Closed</span>
                                                 break;
                                             case BookingStatus.Rejected:
-                                                <span class="badge bg-danger rounded-pill px-3 py-1.5"><i class="fa-solid fa-ban me-1"></i> Declined</span>
+                                                <span class="badge bg-danger rounded-pill px-3 py-1"><i class="fa-solid fa-ban me-1"></i> Declined</span>
                                                 break;
                                             case BookingStatus.Cancelled:
-                                                <span class="badge bg-secondary bg-opacity-25 text-muted border border-secondary border-opacity-25 rounded-pill px-3 py-1.5">Cancelled</span>
+                                                <span class="badge bg-secondary bg-opacity-25 text-muted rounded-pill px-3 py-1">Cancelled</span>
                                                 break;
                                         }
                                     </div>
-
                                     <div class="d-flex gap-3 mb-3">
-                                        <div class="rounded-3 overflow-hidden bg-dark flex-shrink-0 border border-secondary border-opacity-25" style="width: 80px; height: 80px;">
+                                        <div class="rounded-3 overflow-hidden bg-dark flex-shrink-0 border border-secondary border-opacity-25" style="width:80px;height:80px;">
                                             @if (!string.IsNullOrEmpty(item.AssetImageUrl))
                                             {
                                                 <img src="@item.AssetImageUrl" class="w-100 h-100 object-fit-cover" alt="@item.AssetTitle" />
@@ -163,47 +151,51 @@
                                         </div>
                                         <div>
                                             <h5 class="fw-bold text-white mb-1">@item.AssetTitle</h5>
-                                            <p class="small text-muted mb-0">
-                                                Owner: <strong class="text-white">@item.OtherUserName</strong>
-                                            </p>
+                                            <p class="small text-muted mb-0">Owner: <strong class="text-white">@item.OtherUserName</strong></p>
                                         </div>
                                     </div>
-
-                                    <!-- Lease Schedule & Pricing -->
                                     <div class="booking-info-box mb-3 small">
                                         <div class="d-flex justify-content-between mb-1">
                                             <span class="text-muted"><i class="fa-regular fa-calendar me-1"></i> Duration:</span>
-                                            <span class="fw-semibold text-white">@item.StartDate.ToString("dd MMM yyyy") – @item.EndDate.ToString("dd MMM yyyy") (@item.TotalDays days)</span>
+                                            <span class="fw-semibold text-white">@item.StartDate.ToString("dd MMM yyyy") - @item.EndDate.ToString("dd MMM yyyy") (@item.TotalDays days)</span>
                                         </div>
                                         <div class="d-flex justify-content-between mb-1">
                                             <span class="text-muted">Total Rent:</span>
-                                            <span class="text-white">₹@item.TotalRent.ToString("N0")</span>
+                                            <span class="text-white">Rs @item.TotalRent.ToString("N0")</span>
                                         </div>
                                         <div class="d-flex justify-content-between mb-1">
                                             <span class="text-muted">Refundable Security Deposit:</span>
-                                            <span class="text-white">₹@item.SecurityDeposit.ToString("N0")</span>
+                                            <span class="text-white">Rs @item.SecurityDeposit.ToString("N0")</span>
                                         </div>
                                         <div class="d-flex justify-content-between border-top border-secondary border-opacity-25 pt-2 mt-2 fw-bold text-white">
                                             <span>Total Value:</span>
-                                            <span class="text-primary">₹@item.TotalAmount.ToString("N0")</span>
+                                            <span class="text-primary">Rs @item.TotalAmount.ToString("N0")</span>
                                         </div>
                                     </div>
-
-                                    <!-- Actions -->
-                                    <div class="mt-auto d-flex gap-2">
-                                        <a asp-controller="Chat" asp-action="Index" asp-route-recipientId="@item.OtherUserId" class="btn btn-outline-primary btn-sm rounded-pill flex-grow-1 py-2 fw-semibold">
-                                            <i class="fa-regular fa-comments me-1"></i> Chat with Owner
+                                    <div class="mt-auto d-flex flex-wrap gap-2">
+                                        <a asp-controller="Chat" asp-action="Index" asp-route-recipientId="@item.OtherUserId" class="btn btn-outline-primary btn-sm rounded-pill py-2 px-3 fw-semibold">
+                                            <i class="fa-regular fa-comments me-1"></i> Chat
                                         </a>
                                         <a asp-controller="Asset" asp-action="Details" asp-route-id="@item.AssetId" class="btn btn-outline-secondary btn-sm rounded-pill px-3 py-2 text-white">
                                             View Asset
                                         </a>
+                                        @if (item.Status == BookingStatus.Active || item.Status == BookingStatus.Approved)
+                                        {
+                                            <a asp-controller="Booking" asp-action="ReturnAsset" asp-route-bookingId="@item.BookingId" class="btn btn-warning btn-sm rounded-pill px-3 py-2 fw-semibold text-dark">
+                                                <i class="fa-solid fa-camera me-1"></i> Return &amp; Upload Photos
+                                            </a>
+                                        }
+                                        @if (item.Status == BookingStatus.Completed || item.HasReturnInspection)
+                                        {
+                                            <a asp-controller="Booking" asp-action="InspectionReview" asp-route-bookingId="@item.BookingId" class="btn btn-info btn-sm rounded-pill px-3 py-2 fw-semibold text-dark">
+                                                <i class="fa-solid fa-clipboard-check me-1"></i> View Condition &amp; Review
+                                            </a>
+                                        }
                                         @if (item.Status == BookingStatus.Pending)
                                         {
                                             <form method="post" asp-action="Cancel" asp-route-id="@item.BookingId" class="d-inline" onsubmit="return confirm('Cancel this lease request?');">
                                                 @Html.AntiForgeryToken()
-                                                <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3 py-2">
-                                                    Cancel
-                                                </button>
+                                                <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3 py-2">Cancel</button>
                                             </form>
                                         }
                                     </div>
@@ -218,7 +210,7 @@
                 <div class="text-center py-5 booking-card">
                     <i class="fa-solid fa-file-contract fa-3x text-muted opacity-50 mb-3"></i>
                     <h4 class="fw-bold text-white">No active leases yet</h4>
-                    <p class="text-muted mb-4">You haven't requested any assets on lease yet. Explore our marketplace to find equipment.</p>
+                    <p class="text-muted mb-4">You have not requested any assets on lease yet.</p>
                     <a asp-controller="Asset" asp-action="Index" class="btn btn-primary rounded-pill px-4 py-2 fw-semibold">
                         <i class="fa-solid fa-magnifying-glass me-1"></i> Explore Assets to Lease
                     </a>
@@ -227,7 +219,7 @@
         </div>
 
         <!-- TAB 2: AS ASSET OWNER -->
-        <div class="tab-pane fade" id="owner-content" role="tabpanel">
+        <div class="@ownerPaneClass" id="owner-content" role="tabpanel">
             @if (Model.AsOwnerBookings.Any())
             {
                 <div class="row g-4">
@@ -237,34 +229,31 @@
                             <div class="booking-card h-100 overflow-hidden">
                                 <div class="card-body p-4 d-flex flex-column">
                                     <div class="d-flex align-items-center justify-content-between mb-3">
-                                        <span class="badge bg-secondary bg-opacity-25 text-white border border-secondary border-opacity-25 rounded-pill px-3 py-1.5">
-                                            @item.Category
-                                        </span>
+                                        <span class="badge bg-secondary bg-opacity-25 text-white border border-secondary border-opacity-25 rounded-pill px-3 py-1">@item.Category</span>
                                         @switch (item.Status)
                                         {
                                             case BookingStatus.Pending:
-                                                <span class="badge bg-warning text-dark rounded-pill px-3 py-1.5 fw-semibold"><i class="fa-solid fa-bell me-1"></i> Action Needed: Request Received</span>
+                                                <span class="badge bg-warning text-dark rounded-pill px-3 py-1 fw-semibold"><i class="fa-solid fa-bell me-1"></i> Action Needed: Request Received</span>
                                                 break;
                                             case BookingStatus.Approved:
-                                                <span class="badge bg-info text-dark rounded-pill px-3 py-1.5 fw-semibold"><i class="fa-solid fa-check me-1"></i> Approved</span>
+                                                <span class="badge bg-info text-dark rounded-pill px-3 py-1 fw-semibold"><i class="fa-solid fa-check me-1"></i> Approved</span>
                                                 break;
                                             case BookingStatus.Active:
-                                                <span class="badge bg-success rounded-pill px-3 py-1.5"><i class="fa-solid fa-circle-play me-1"></i> Occupied / Active</span>
+                                                <span class="badge bg-success rounded-pill px-3 py-1"><i class="fa-solid fa-circle-play me-1"></i> Occupied / Active</span>
                                                 break;
                                             case BookingStatus.Completed:
-                                                <span class="badge bg-secondary rounded-pill px-3 py-1.5">Completed</span>
+                                                <span class="badge bg-secondary rounded-pill px-3 py-1"><i class="fa-solid fa-circle-check me-1"></i> Completed &amp; Returned</span>
                                                 break;
                                             case BookingStatus.Rejected:
-                                                <span class="badge bg-danger rounded-pill px-3 py-1.5">Declined</span>
+                                                <span class="badge bg-danger rounded-pill px-3 py-1">Declined</span>
                                                 break;
                                             case BookingStatus.Cancelled:
-                                                <span class="badge bg-secondary bg-opacity-25 text-muted border border-secondary border-opacity-25 rounded-pill px-3 py-1.5">Cancelled by Renter</span>
+                                                <span class="badge bg-secondary bg-opacity-25 text-muted rounded-pill px-3 py-1">Cancelled by Renter</span>
                                                 break;
                                         }
                                     </div>
-
                                     <div class="d-flex gap-3 mb-3">
-                                        <div class="rounded-3 overflow-hidden bg-dark flex-shrink-0 border border-secondary border-opacity-25" style="width: 80px; height: 80px;">
+                                        <div class="rounded-3 overflow-hidden bg-dark flex-shrink-0 border border-secondary border-opacity-25" style="width:80px;height:80px;">
                                             @if (!string.IsNullOrEmpty(item.AssetImageUrl))
                                             {
                                                 <img src="@item.AssetImageUrl" class="w-100 h-100 object-fit-cover" alt="@item.AssetTitle" />
@@ -278,47 +267,44 @@
                                         </div>
                                         <div>
                                             <h5 class="fw-bold text-white mb-1">@item.AssetTitle</h5>
-                                            <p class="small text-muted mb-0">
-                                                Requested by: <strong class="text-white">@item.OtherUserName</strong>
-                                            </p>
+                                            <p class="small text-muted mb-0">Requested by: <strong class="text-white">@item.OtherUserName</strong></p>
                                         </div>
                                     </div>
-
-                                    <!-- Lease Schedule & Pricing -->
                                     <div class="booking-info-box mb-3 small">
                                         <div class="d-flex justify-content-between mb-1">
                                             <span class="text-muted"><i class="fa-regular fa-calendar me-1"></i> Schedule:</span>
-                                            <span class="fw-semibold text-white">@item.StartDate.ToString("dd MMM yyyy") – @item.EndDate.ToString("dd MMM yyyy") (@item.TotalDays days)</span>
+                                            <span class="fw-semibold text-white">@item.StartDate.ToString("dd MMM yyyy") - @item.EndDate.ToString("dd MMM yyyy") (@item.TotalDays days)</span>
                                         </div>
                                         <div class="d-flex justify-content-between mb-1">
                                             <span class="text-muted">Earnings (Rent):</span>
-                                            <span class="fw-semibold text-success">₹@item.TotalRent.ToString("N0")</span>
+                                            <span class="fw-semibold text-success">Rs @item.TotalRent.ToString("N0")</span>
                                         </div>
                                         <div class="d-flex justify-content-between border-top border-secondary border-opacity-25 pt-2 mt-2">
                                             <span class="text-muted">Escrow Deposit:</span>
-                                            <span class="text-white">₹@item.SecurityDeposit.ToString("N0")</span>
+                                            <span class="text-white">Rs @item.SecurityDeposit.ToString("N0")</span>
                                         </div>
                                     </div>
-
-                                    <!-- Owner Actions -->
                                     <div class="mt-auto d-flex flex-wrap gap-2">
-                                        <a asp-controller="Chat" asp-action="Index" asp-route-recipientId="@item.OtherUserId" class="btn btn-outline-primary btn-sm rounded-pill flex-grow-1 py-2 fw-semibold">
+                                        <a asp-controller="Chat" asp-action="Index" asp-route-recipientId="@item.OtherUserId" class="btn btn-outline-primary btn-sm rounded-pill py-2 px-3 fw-semibold">
                                             <i class="fa-regular fa-comments me-1"></i> Chat with Renter
                                         </a>
-
+                                        @if (item.Status == BookingStatus.Completed || item.HasReturnInspection)
+                                        {
+                                            <a asp-controller="Booking" asp-action="InspectionReview" asp-route-bookingId="@item.BookingId" class="btn btn-info btn-sm rounded-pill px-3 py-2 fw-semibold text-dark">
+                                                <i class="fa-solid fa-clipboard-check me-1"></i> Inspect Condition &amp; Review
+                                            </a>
+                                        }
                                         @if (item.Status == BookingStatus.Pending)
                                         {
                                             <form method="post" asp-action="Approve" asp-route-id="@item.BookingId" class="d-inline">
                                                 @Html.AntiForgeryToken()
                                                 <button type="submit" class="btn btn-success btn-sm rounded-pill px-3 py-2 fw-semibold">
-                                                    <i class="fa-solid fa-check me-1"></i> Approve
+                                                    <i class="fa-solid fa-check me-1"></i> Accept Request
                                                 </button>
                                             </form>
                                             <form method="post" asp-action="Reject" asp-route-id="@item.BookingId" class="d-inline" onsubmit="return confirm('Decline this lease inquiry?');">
                                                 @Html.AntiForgeryToken()
-                                                <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3 py-2">
-                                                    Decline
-                                                </button>
+                                                <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3 py-2">Decline</button>
                                             </form>
                                         }
                                     </div>
@@ -340,5 +326,6 @@
                 </div>
             }
         </div>
+
     </div>
 </div>

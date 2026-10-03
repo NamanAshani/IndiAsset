@@ -46,6 +46,7 @@ namespace IndiAsset.Models
         public DateTime AvailableFrom { get; set; }
         public int ActiveBookingsCount { get; set; }
         public List<Booking> ConfirmedBookings { get; set; } = new();
+        public List<BookingItemViewModel> OwnerPendingBookings { get; set; } = new();
         public bool IsOwner { get; set; }
         public bool CanBook { get; set; }
         public BookingCreateViewModel BookingForm { get; set; } = new();
@@ -103,17 +104,33 @@ namespace IndiAsset.Models
         [DataType(DataType.Date)]
         public DateTime StartDate { get; set; } = DateTime.UtcNow.Date.AddDays(1);
 
+        [Required(ErrorMessage = "Number of days is required")]
+        [Range(1, 365, ErrorMessage = "Lease duration must be between 1 and 365 days")]
+        public int NumberOfDays { get; set; } = 3;
+
         [Required(ErrorMessage = "End date is required")]
         [DataType(DataType.Date)]
-        public DateTime EndDate { get; set; } = DateTime.UtcNow.Date.AddDays(3);
+        public DateTime EndDate { get; set; } = DateTime.UtcNow.Date.AddDays(4);
 
         public string? Notes { get; set; }
+    }
+
+    public class MyAssetsDashboardViewModel
+    {
+        public List<AssetCardViewModel> Assets { get; set; } = new();
+        public List<BookingItemViewModel> PendingInquiries { get; set; } = new();
+        public List<BookingItemViewModel> ActiveLeases { get; set; } = new();
+        public int TotalAssetsCount => Assets.Count;
+        public int OccupiedCount => Assets.Count(a => a.IsCurrentlyOccupied);
+        public int AvailableCount => Assets.Count(a => !a.IsCurrentlyOccupied);
+        public int PendingInquiriesCount => PendingInquiries.Count;
     }
 
     public class MyBookingsViewModel
     {
         public List<BookingItemViewModel> AsRenterBookings { get; set; } = new();
         public List<BookingItemViewModel> AsOwnerBookings { get; set; } = new();
+        public string ActiveTab { get; set; } = "renter";
     }
 
     public class BookingItemViewModel
@@ -135,5 +152,7 @@ namespace IndiAsset.Models
         public BookingStatus Status { get; set; }
         public DateTime CreatedAt { get; set; }
         public bool IsOwner { get; set; }
+        public bool HasReturnInspection { get; set; }
+        public string? ReturnInspectionId { get; set; }
     }
 }

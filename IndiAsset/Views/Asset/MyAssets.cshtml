@@ -1,76 +1,197 @@
-@model List<IndiAsset.Models.AssetCardViewModel>
+@model IndiAsset.Models.MyAssetsDashboardViewModel
 @{
-    ViewData["Title"] = "My Assets — Owner Dashboard";
-    var totalAssets = Model.Count;
-    var occupiedAssets = Model.Count(a => a.IsCurrentlyOccupied);
-    var availableAssets = Model.Count(a => !a.IsCurrentlyOccupied);
+    ViewData["Title"] = "My Assets & Lease Inquiries — Owner Dashboard";
+    var totalAssets = Model.TotalAssetsCount;
+    var occupiedAssets = Model.OccupiedCount;
+    var availableAssets = Model.AvailableCount;
+    var pendingInquiries = Model.PendingInquiriesCount;
 }
 
 <div class="container py-4">
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
         <div>
             <h1 class="h2 fw-bold mb-1" style="color: #f1f5f9;">Asset Owner Dashboard</h1>
-            <p class="text-muted mb-0">Manage your industrial equipment, monitor occupancy schedules, and track leasing availability.</p>
+            <p class="text-muted mb-0">Manage your industrial equipment, accept or decline incoming lease requests, and monitor schedules.</p>
         </div>
-        <a asp-action="Create" class="btn btn-primary rounded-pill px-4 py-2.5 fw-semibold shadow-sm">
-            List New Asset
-        </a>
+        <div class="d-flex gap-2">
+            <a asp-controller="Booking" asp-action="MyBookings" asp-route-tab="owner" class="btn btn-outline-primary rounded-pill px-4 py-2.5 fw-semibold">
+                <i class="fa-solid fa-list-check me-1"></i> All Lease Inquiries
+            </a>
+            <a asp-action="Create" class="btn btn-primary rounded-pill px-4 py-2.5 fw-semibold shadow-sm">
+                <i class="fa-solid fa-plus me-1"></i> List New Asset
+            </a>
+        </div>
     </div>
 
     <!-- Feedback messages -->
     @if (TempData["SuccessMessage"] != null)
     {
         <div class="alert alert-success alert-dismissible fade show rounded-3 shadow-sm mb-4" role="alert">
-            @TempData["SuccessMessage"]
+            <i class="fa-solid fa-circle-check me-2"></i> @TempData["SuccessMessage"]
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     }
 
     <!-- Stat Cards -->
     <div class="row g-3 mb-4">
-        <div class="col-sm-6 col-lg-4">
-            <div class="card border-0 rounded-4 shadow-sm p-4" style="background-color: #1a1d27;">
+        <div class="col-sm-6 col-lg-3">
+            <div class="card border-0 rounded-4 shadow-sm p-3.5" style="background-color: #1a1d27;">
                 <div class="d-flex align-items-center justify-content-between">
                     <div>
-                        <span class="text-muted small fw-semibold text-uppercase">Total Listed Assets</span>
-                        <h2 class="fw-bold mb-0 mt-1" style="color: #f1f5f9;">@totalAssets</h2>
+                        <span class="text-muted small fw-semibold text-uppercase">Listed Assets</span>
+                        <h3 class="fw-bold mb-0 mt-1" style="color: #f1f5f9;">@totalAssets</h3>
                     </div>
                     <div class="bg-primary bg-opacity-10 text-primary rounded-4 p-3">
-                        <i class="fa-solid fa-cubes-stacked fa-2x"></i>
+                        <i class="fa-solid fa-cubes-stacked fa-xl"></i>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-lg-4">
-            <div class="card border-0 rounded-4 shadow-sm p-4" style="background-color: #1a1d27;">
+        <div class="col-sm-6 col-lg-3">
+            <div class="card border-0 rounded-4 shadow-sm p-3.5" style="background-color: #1a1d27;">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <span class="text-muted small fw-semibold text-uppercase">Pending Inquiries</span>
+                        <h3 class="fw-bold text-warning mb-0 mt-1">@pendingInquiries</h3>
+                    </div>
+                    <div class="bg-warning bg-opacity-10 text-warning rounded-4 p-3">
+                        <i class="fa-solid fa-bell fa-xl"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card border-0 rounded-4 shadow-sm p-3.5" style="background-color: #1a1d27;">
                 <div class="d-flex align-items-center justify-content-between">
                     <div>
                         <span class="text-muted small fw-semibold text-uppercase">Currently On Lease</span>
-                        <h2 class="fw-bold text-danger mb-0 mt-1">@occupiedAssets</h2>
+                        <h3 class="fw-bold text-danger mb-0 mt-1">@occupiedAssets</h3>
                     </div>
                     <div class="bg-danger bg-opacity-10 text-danger rounded-4 p-3">
-                        <i class="fa-solid fa-clock-rotate-left fa-2x"></i>
+                        <i class="fa-solid fa-clock-rotate-left fa-xl"></i>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-lg-4">
-            <div class="card border-0 rounded-4 shadow-sm p-4" style="background-color: #1a1d27;">
+        <div class="col-sm-6 col-lg-3">
+            <div class="card border-0 rounded-4 shadow-sm p-3.5" style="background-color: #1a1d27;">
                 <div class="d-flex align-items-center justify-content-between">
                     <div>
-                        <span class="text-muted small fw-semibold text-uppercase">Ready for Rent</span>
-                        <h2 class="fw-bold text-success mb-0 mt-1">@availableAssets</h2>
+                        <span class="text-muted small fw-semibold text-uppercase">Available for Rent</span>
+                        <h3 class="fw-bold text-success mb-0 mt-1">@availableAssets</h3>
                     </div>
                     <div class="bg-success bg-opacity-10 text-success rounded-4 p-3">
-                        <i class="fa-solid fa-circle-check fa-2x"></i>
+                        <i class="fa-solid fa-circle-check fa-xl"></i>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Assets List -->
-    @if (Model.Any())
+    <!-- ====================================================== -->
+    <!-- SECTION 1: PENDING INCOMING LEASE REQUESTS (OWNER ACTION) -->
+    <!-- ====================================================== -->
+    @if (Model.PendingInquiries.Any())
+    {
+        <div class="card border-warning border-opacity-50 rounded-4 shadow-sm mb-4 overflow-hidden" style="background-color: #1a1d27;">
+            <div class="card-header border-bottom border-warning border-opacity-25 p-3.5 d-flex align-items-center justify-content-between" style="background: rgba(234, 179, 8, 0.08);">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-warning text-dark fw-bold rounded-pill px-2.5 py-1">
+                        <i class="fa-solid fa-bell me-1"></i> Action Required
+                    </span>
+                    <h5 class="fw-bold mb-0 text-white">Pending Lease Requests (@Model.PendingInquiriesCount)</h5>
+                </div>
+                <span class="small text-muted">Review terms and accept or decline incoming lease proposals</span>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" style="--bs-table-bg: transparent; --bs-table-color: #cbd5e1;">
+                    <thead style="background-color: #1e2130;" class="text-muted small text-uppercase">
+                        <tr>
+                            <th class="ps-4 py-3 border-0">Asset Requested</th>
+                            <th class="py-3 border-0">Renter</th>
+                            <th class="py-3 border-0">Requested Duration</th>
+                            <th class="py-3 border-0">Rent / Escrow Deposit</th>
+                            <th class="py-3 text-end pe-4 border-0">Accept / Decline</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model.PendingInquiries)
+                        {
+                            <tr style="border-bottom-color: rgba(255,255,255,0.06);">
+                                <td class="ps-4 py-3 border-0">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="rounded-3 overflow-hidden flex-shrink-0" style="width: 54px; height: 54px; background-color: #252836;">
+                                            @if (!string.IsNullOrEmpty(item.AssetImageUrl))
+                                            {
+                                                <img src="@item.AssetImageUrl" class="w-100 h-100 object-fit-cover" alt="@item.AssetTitle" />
+                                            }
+                                            else
+                                            {
+                                                <div class="w-100 h-100 d-flex align-items-center justify-content-center text-muted">
+                                                    <i class="fa-solid fa-cube"></i>
+                                                </div>
+                                            }
+                                        </div>
+                                        <div>
+                                            <a asp-action="Details" asp-route-id="@item.AssetId" class="fw-bold text-decoration-none text-white">
+                                                @item.AssetTitle
+                                            </a>
+                                            <small class="text-muted d-block">Requested on @item.CreatedAt.ToLocalTime().ToString("dd MMM yyyy, hh:mm tt")</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="border-0">
+                                    <div class="fw-semibold text-white">@item.OtherUserName</div>
+                                    <a asp-controller="Chat" asp-action="Index" asp-route-recipientId="@item.OtherUserId" class="small text-primary text-decoration-none">
+                                        <i class="fa-regular fa-comments me-1"></i> Chat with Renter
+                                    </a>
+                                </td>
+                                <td class="border-0">
+                                    <div class="badge bg-primary rounded-pill px-3 py-1.5 fw-bold mb-1">
+                                        <i class="fa-solid fa-clock me-1"></i> @item.TotalDays @(item.TotalDays == 1 ? "Day" : "Days")
+                                    </div>
+                                    <div class="small text-muted">
+                                        @item.StartDate.ToString("dd MMM yyyy") – @item.EndDate.ToString("dd MMM yyyy")
+                                    </div>
+                                </td>
+                                <td class="border-0">
+                                    <div class="fw-bold text-success">₹@item.TotalRent.ToString("N0") <span class="small text-muted fw-normal">(Rent)</span></div>
+                                    <div class="small text-muted">Deposit: ₹@item.SecurityDeposit.ToString("N0")</div>
+                                </td>
+                                <td class="text-end pe-4 border-0">
+                                    <div class="d-inline-flex gap-2">
+                                        <form method="post" asp-controller="Booking" asp-action="Approve" asp-route-id="@item.BookingId" class="d-inline">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="btn btn-success btn-sm rounded-pill px-3 py-1.5 fw-semibold shadow-sm">
+                                                <i class="fa-solid fa-check me-1"></i> Accept Request
+                                            </button>
+                                        </form>
+                                        <form method="post" asp-controller="Booking" asp-action="Reject" asp-route-id="@item.BookingId" class="d-inline" onsubmit="return confirm('Decline this lease request?');">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-2.5 py-1.5" title="Decline Request">
+                                                <i class="fa-solid fa-xmark me-1"></i> Decline
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    <!-- ====================================================== -->
+    <!-- SECTION 2: ASSET INVENTORY -->
+    <!-- ====================================================== -->
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h4 class="fw-bold mb-0" style="color: #f1f5f9;">Your Listed Equipment (@totalAssets)</h4>
+        <span class="small text-muted">Manage pricing, edit specifications, or toggle rental availability</span>
+    </div>
+
+    @if (Model.Assets.Any())
     {
         <div class="card border-0 rounded-4 shadow-sm overflow-hidden" style="background-color: #1a1d27;">
             <div class="table-responsive">
@@ -85,7 +206,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var asset in Model)
+                        @foreach (var asset in Model.Assets)
                         {
                             <tr style="border-bottom-color: rgba(255,255,255,0.06);">
                                 <td class="ps-4 py-3 border-0">

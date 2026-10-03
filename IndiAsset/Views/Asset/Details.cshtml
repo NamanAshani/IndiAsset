@@ -156,14 +156,59 @@
                     @if (Model.IsOwner)
                     {
                         <div class="alert alert-info border-0 rounded-3 text-center mb-3">
-                            You are the owner of this asset listing.
+                            <i class="fa-solid fa-crown me-1 text-warning"></i> You own this asset listing.
                         </div>
-                        <a asp-action="Edit" asp-route-id="@Model.Asset.Id" class="btn btn-warning w-100 rounded-3 py-2 fw-semibold mb-2">
-                            Edit Asset Details
-                        </a>
-                        <a asp-action="MyAssets" class="btn btn-outline-secondary w-100 rounded-3 py-2">
-                            View In Dashboard
-                        </a>
+                        <div class="d-flex gap-2 mb-3">
+                            <a asp-action="Edit" asp-route-id="@Model.Asset.Id" class="btn btn-warning flex-grow-1 rounded-3 py-2 fw-semibold">
+                                <i class="fa-solid fa-pen me-1"></i> Edit Listing
+                            </a>
+                            <a asp-action="MyAssets" class="btn btn-outline-secondary rounded-3 py-2 px-3">
+                                Dashboard
+                            </a>
+                        </div>
+
+                        @if (Model.OwnerPendingBookings.Any())
+                        {
+                            <div class="border border-warning border-opacity-50 rounded-3 p-3 bg-warning bg-opacity-10 mb-3">
+                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                    <h6 class="fw-bold text-warning mb-0">
+                                        <i class="fa-solid fa-bell me-1"></i> Pending Inquiries (@Model.OwnerPendingBookings.Count)
+                                    </h6>
+                                    <a asp-controller="Booking" asp-action="MyBookings" asp-route-tab="owner" class="small text-warning text-decoration-none">
+                                        View All &rarr;
+                                    </a>
+                                </div>
+                                @foreach (var req in Model.OwnerPendingBookings)
+                                {
+                                    <div class="bg-dark p-2.5 rounded-3 mb-2 border border-secondary border-opacity-25 small">
+                                        <div class="d-flex justify-content-between mb-1">
+                                            <strong class="text-white">@req.OtherUserName</strong>
+                                            <span class="badge bg-primary">@req.TotalDays Days</span>
+                                        </div>
+                                        <div class="text-muted small mb-2">
+                                            @req.StartDate.ToString("dd MMM") – @req.EndDate.ToString("dd MMM yyyy") • <span class="text-success fw-bold">₹@req.TotalRent.ToString("N0")</span>
+                                        </div>
+                                        <div class="d-flex gap-1.5">
+                                            <form method="post" asp-controller="Booking" asp-action="Approve" asp-route-id="@req.BookingId" class="d-inline flex-grow-1">
+                                                @Html.AntiForgeryToken()
+                                                <button type="submit" class="btn btn-success btn-sm w-100 py-1 fw-semibold">
+                                                    <i class="fa-solid fa-check me-1"></i> Approve
+                                                </button>
+                                            </form>
+                                            <form method="post" asp-controller="Booking" asp-action="Reject" asp-route-id="@req.BookingId" class="d-inline" onsubmit="return confirm('Decline this request?');">
+                                                @Html.AntiForgeryToken()
+                                                <button type="submit" class="btn btn-outline-danger btn-sm py-1 px-2">
+                                                    <i class="fa-solid fa-xmark"></i>
+                                                </button>
+                                            </form>
+                                            <a asp-controller="Chat" asp-action="Index" asp-route-recipientId="@req.OtherUserId" class="btn btn-outline-primary btn-sm py-1 px-2" title="Chat">
+                                                <i class="fa-solid fa-comments"></i>
+                                            </a>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
                     }
                     else
                     {
@@ -172,49 +217,87 @@
                             <input type="hidden" name="AssetId" value="@Model.Asset.Id" />
 
                             <div class="mb-3">
-                                <label class="form-label fw-semibold small text-muted">Lease Start Date</label>
+                                <label class="form-label fw-semibold small text-muted">
+                                    <i class="fa-regular fa-calendar me-1"></i> Lease Start Date
+                                </label>
                                 <input type="date" id="startDate" name="StartDate"
                                        value="@Model.BookingForm.StartDate.ToString("yyyy-MM-dd")"
                                        min="@DateTime.UtcNow.ToString("yyyy-MM-dd")"
-                                       class="form-control rounded-3" required onchange="recalculateCost()" />
+                                       class="form-control rounded-3" required onchange="onStartDateChanged()" />
                             </div>
 
                             <div class="mb-3">
-                                <label class="form-label fw-semibold small text-muted">Lease End Date</label>
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label class="form-label fw-semibold small text-muted mb-0">
+                                        <i class="fa-solid fa-clock me-1"></i> How many days do you need it?
+                                    </label>
+                                    <span class="badge bg-primary bg-opacity-25 text-primary border border-primary border-opacity-25 small" id="daysBadge">3 Days</span>
+                                </div>
+                                <div class="input-group">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="adjustDays(-1)">
+                                        <i class="fa-solid fa-minus"></i>
+                                    </button>
+                                    <input type="number" id="leaseDays" name="NumberOfDays"
+                                           value="@Model.BookingForm.NumberOfDays"
+                                           min="1" max="365"
+                                           class="form-control rounded-0 text-center fw-bold text-white fs-5"
+                                           required onchange="onDaysChanged()" oninput="onDaysChanged()" />
+                                    <button class="btn btn-outline-secondary" type="button" onclick="adjustDays(1)">
+                                        <i class="fa-solid fa-plus"></i>
+                                    </button>
+                                </div>
+                                <!-- Preset Day Buttons -->
+                                <div class="d-flex gap-1.5 flex-wrap mt-2">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary py-0.5 px-2 small rounded-pill" onclick="setPresetDays(1)">1 Day</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary py-0.5 px-2 small rounded-pill" onclick="setPresetDays(3)">3 Days</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary py-0.5 px-2 small rounded-pill" onclick="setPresetDays(7)">1 Week</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary py-0.5 px-2 small rounded-pill" onclick="setPresetDays(15)">15 Days</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary py-0.5 px-2 small rounded-pill" onclick="setPresetDays(30)">1 Month</button>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold small text-muted">
+                                    <i class="fa-solid fa-flag-checkered me-1"></i> Calculated Return Date
+                                </label>
                                 <input type="date" id="endDate" name="EndDate"
                                        value="@Model.BookingForm.EndDate.ToString("yyyy-MM-dd")"
                                        min="@DateTime.UtcNow.AddDays(1).ToString("yyyy-MM-dd")"
-                                       class="form-control rounded-3" required onchange="recalculateCost()" />
+                                       class="form-control rounded-3" required onchange="onEndDateChanged()" />
                             </div>
 
                             <div class="mb-3">
-                                <label class="form-label fw-semibold small text-muted">Notes (Optional)</label>
-                                <textarea name="Notes" class="form-control rounded-3" rows="2" placeholder="e.g. Need transport, site location..."></textarea>
+                                <label class="form-label fw-semibold small text-muted">Notes / Site Details (Optional)</label>
+                                <textarea name="Notes" class="form-control rounded-3" rows="2" placeholder="e.g. Need transport, operational location..."></textarea>
                             </div>
 
                             <div class="bg-light p-3 rounded-3 mb-3">
                                 <div class="d-flex justify-content-between small text-muted mb-1">
-                                    <span>Duration</span>
-                                    <span id="calcDays" class="fw-semibold" style="color:#e2e8f0;">0 days</span>
+                                    <span>Selected Duration</span>
+                                    <span id="calcDays" class="fw-semibold" style="color:#e2e8f0;">3 days</span>
+                                </div>
+                                <div class="d-flex justify-content-between small text-muted mb-1">
+                                    <span>Daily Rent Rate</span>
+                                    <span class="fw-semibold" style="color:#e2e8f0;">₹@Model.Asset.DailyRent.ToString("N0") / day</span>
                                 </div>
                                 <div class="d-flex justify-content-between small text-muted mb-1">
                                     <span>Rent Subtotal</span>
-                                    <span id="calcRent" class="fw-semibold" style="color:#e2e8f0;">₹0</span>
+                                    <span id="calcRent" class="fw-semibold" style="color:#e2e8f0;">₹@((3 * Model.Asset.DailyRent).ToString("N0"))</span>
                                 </div>
                                 <div class="d-flex justify-content-between small text-muted mb-2">
-                                    <span>Security Deposit (Refundable)</span>
+                                    <span>Refundable Escrow Deposit</span>
                                     <span id="calcDeposit" class="fw-semibold" style="color:#e2e8f0;">₹@Model.Asset.SecurityDeposit.ToString("N0")</span>
                                 </div>
                                 <div class="d-flex justify-content-between border-top pt-2 fw-bold" style="color:#f1f5f9;">
                                     <span>Total Payable</span>
-                                    <span id="calcTotal" class="text-primary fs-5">₹0</span>
+                                    <span id="calcTotal" class="text-primary fs-5">₹@(((3 * Model.Asset.DailyRent) + Model.Asset.SecurityDeposit).ToString("N0"))</span>
                                 </div>
                             </div>
 
                             @if (User.Identity?.IsAuthenticated == true)
                             {
-                                <button type="submit" class="btn btn-primary w-100 rounded-3 py-2 fw-semibold shadow-sm">
-                                    Request to Lease
+                                <button type="submit" class="btn btn-primary w-100 rounded-3 py-2.5 fw-semibold shadow-sm fs-6">
+                                    <i class="fa-solid fa-paper-plane me-1"></i> Request to Lease for <span id="btnDurationText">3 Days</span>
                                 </button>
                             }
                             else
@@ -262,24 +345,84 @@
     const dailyRent = @Model.Asset.DailyRent;
     const securityDeposit = @Model.Asset.SecurityDeposit;
 
-    function recalculateCost() {
+    function getDays() {
+        const daysInput = document.getElementById('leaseDays');
+        let d = parseInt(daysInput ? daysInput.value : "1", 10);
+        return isNaN(d) || d < 1 ? 1 : d;
+    }
+
+    function setPresetDays(num) {
+        const daysInput = document.getElementById('leaseDays');
+        if (daysInput) {
+            daysInput.value = num;
+            onDaysChanged();
+        }
+    }
+
+    function adjustDays(delta) {
+        const daysInput = document.getElementById('leaseDays');
+        if (daysInput) {
+            let current = getDays();
+            let next = Math.max(1, current + delta);
+            daysInput.value = next;
+            onDaysChanged();
+        }
+    }
+
+    function onDaysChanged() {
         const startInput = document.getElementById('startDate');
         const endInput = document.getElementById('endDate');
-        if (!startInput || !endInput) return;
-        const start = new Date(startInput.value);
-        const end = new Date(endInput.value);
-        if (!isNaN(start) && !isNaN(end) && end > start) {
-            const diffDays = Math.ceil(Math.abs(end - start) / (1000 * 60 * 60 * 24));
-            const rentSubtotal = diffDays * dailyRent;
-            const grandTotal = rentSubtotal + securityDeposit;
-            document.getElementById('calcDays').innerText = diffDays + (diffDays === 1 ? ' day' : ' days');
-            document.getElementById('calcRent').innerText = '₹' + rentSubtotal.toLocaleString('en-IN');
-            document.getElementById('calcTotal').innerText = '₹' + grandTotal.toLocaleString('en-IN');
-        } else {
-            document.getElementById('calcDays').innerText = '0 days';
-            document.getElementById('calcRent').innerText = '₹0';
-            document.getElementById('calcTotal').innerText = '₹' + securityDeposit.toLocaleString('en-IN');
+        const days = getDays();
+
+        if (startInput && endInput && startInput.value) {
+            const start = new Date(startInput.value);
+            if (!isNaN(start.getTime())) {
+                const end = new Date(start);
+                end.setDate(end.getDate() + days);
+                endInput.value = end.toISOString().split('T')[0];
+            }
         }
+        recalculateCost();
+    }
+
+    function onStartDateChanged() {
+        onDaysChanged();
+    }
+
+    function onEndDateChanged() {
+        const startInput = document.getElementById('startDate');
+        const endInput = document.getElementById('endDate');
+        const daysInput = document.getElementById('leaseDays');
+        if (startInput && endInput && daysInput && startInput.value && endInput.value) {
+            const start = new Date(startInput.value);
+            const end = new Date(endInput.value);
+            if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end > start) {
+                const diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+                daysInput.value = diffDays;
+            }
+        }
+        recalculateCost();
+    }
+
+    function recalculateCost() {
+        const days = getDays();
+        const rentSubtotal = days * dailyRent;
+        const grandTotal = rentSubtotal + securityDeposit;
+
+        const daysBadge = document.getElementById('daysBadge');
+        if (daysBadge) daysBadge.innerText = days + (days === 1 ? ' Day' : ' Days');
+
+        const btnText = document.getElementById('btnDurationText');
+        if (btnText) btnText.innerText = days + (days === 1 ? ' Day' : ' Days');
+
+        const calcDays = document.getElementById('calcDays');
+        if (calcDays) calcDays.innerText = days + (days === 1 ? ' day' : ' days');
+
+        const calcRent = document.getElementById('calcRent');
+        if (calcRent) calcRent.innerText = '₹' + rentSubtotal.toLocaleString('en-IN');
+
+        const calcTotal = document.getElementById('calcTotal');
+        if (calcTotal) calcTotal.innerText = '₹' + grandTotal.toLocaleString('en-IN');
     }
 
     function switchMainImage(url, thumbElement) {
@@ -290,5 +433,7 @@
         thumbElement.classList.add('border-primary', 'border-2');
     }
 
-    document.addEventListener('DOMContentLoaded', recalculateCost);
+    document.addEventListener('DOMContentLoaded', () => {
+        onDaysChanged();
+    });
 </script>

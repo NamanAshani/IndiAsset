@@ -18,6 +18,7 @@ namespace IndiAsset.Models
 
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
+        public int TotalDays { get; set; }
 
         [BsonRepresentation(BsonType.Decimal128)]
         public decimal DailyRent { get; set; }
