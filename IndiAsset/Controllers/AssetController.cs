@@ -28,6 +28,25 @@ namespace IndiAsset.Controllers
         }
 
         // ======================================================
+        // SERVE IMAGES STORED DIRECTLY IN MONGODB DATABASE
+        // ======================================================
+        [HttpGet]
+        [ResponseCache(Duration = 86400, Location = ResponseCacheLocation.Any)]
+        public async Task<IActionResult> Image(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return NotFound();
+
+            var image = await _mongoDbService.AppImages
+                .Find(i => i.Id == id)
+                .FirstOrDefaultAsync();
+
+            if (image == null || image.Data == null || image.Data.Length == 0)
+                return NotFound();
+
+            return File(image.Data, image.ContentType);
+        }
+
+        // ======================================================
         // MARKETPLACE & SEARCH ENGINE
         // ======================================================
         public async Task<IActionResult> Index(
@@ -91,10 +110,13 @@ namespace IndiAsset.Controllers
                 .GetCollection<ApplicationUser>("Users")
                 .Find(u => ownerIds.Contains(u.Id))
                 .ToListAsync();
-            var ownerNameMap = owners.ToDictionary(
-                u => u.Id,
-                u => !string.IsNullOrWhiteSpace(u.FullName) ? u.FullName : (u.Email ?? "Asset Owner")
-            );
+            var ownerNameMap = owners
+                .Where(u => !string.IsNullOrEmpty(u.Id))
+                .GroupBy(u => u.Id)
+                .ToDictionary(
+                    g => g.Key,
+                    g => !string.IsNullOrWhiteSpace(g.First().FullName) ? g.First().FullName : (g.First().Email ?? "Asset Owner")
+                );
 
             var currentUserId = _userManager.GetUserId(User);
 
@@ -222,10 +244,13 @@ namespace IndiAsset.Controllers
                     .Find(u => renterIds.Contains(u.Id))
                     .ToListAsync();
 
-                var renterMap = renters.ToDictionary(
-                    u => u.Id,
-                    u => !string.IsNullOrWhiteSpace(u.FullName) ? u.FullName : (u.Email ?? "Renter")
-                );
+                var renterMap = renters
+                    .Where(u => !string.IsNullOrEmpty(u.Id))
+                    .GroupBy(u => u.Id)
+                    .ToDictionary(
+                        g => g.Key,
+                        g => !string.IsNullOrWhiteSpace(g.First().FullName) ? g.First().FullName : (g.First().Email ?? "Renter")
+                    );
 
                 ownerPendingBookings = bookingsForAsset.Select(b => new BookingItemViewModel
                 {
@@ -318,15 +343,9 @@ namespace IndiAsset.Controllers
                 UpdatedAt = DateTime.UtcNow
             };
 
-            // 1. Process Directly Uploaded Image Files
+            // 1. Process Directly Uploaded Image Files (Stored directly in MongoDB)
             if (model.UploadedImages != null && model.UploadedImages.Any())
             {
-                var uploadDir = Path.Combine(_webHostEnvironment.WebRootPath, "uploads", "assets");
-                if (!Directory.Exists(uploadDir))
-                {
-                    Directory.CreateDirectory(uploadDir);
-                }
-
                 var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp", ".avif", ".gif" };
                 foreach (var file in model.UploadedImages)
                 {
@@ -335,17 +354,22 @@ namespace IndiAsset.Controllers
                         var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
                         if (allowedExtensions.Contains(ext))
                         {
-                            var uniqueName = $"{Guid.NewGuid():N}{ext}";
-                            var fullPath = Path.Combine(uploadDir, uniqueName);
-                            using (var stream = new FileStream(fullPath, FileMode.Create))
+                            using var ms = new MemoryStream();
+                            await file.CopyToAsync(ms);
+                            var appImage = new AppImage
                             {
-                                await file.CopyToAsync(stream);
-                            }
+                                FileName = Path.GetFileName(file.FileName),
+                                ContentType = !string.IsNullOrEmpty(file.ContentType) ? file.ContentType : "image/jpeg",
+                                Data = ms.ToArray(),
+                                Size = file.Length,
+                                UploadedAt = DateTime.UtcNow
+                            };
+                            await _mongoDbService.AppImages.InsertOneAsync(appImage);
 
                             asset.Images.Add(new AssetImage
                             {
-                                ImageUrl = $"/uploads/assets/{uniqueName}",
-                                Url = $"/uploads/assets/{uniqueName}",
+                                ImageUrl = $"/Asset/Image/{appImage.Id}",
+                                Url = $"/Asset/Image/{appImage.Id}",
                                 IsPrimary = asset.Images.Count == 0,
                                 Caption = model.Title
                             });
@@ -487,15 +511,9 @@ namespace IndiAsset.Controllers
             }
             // If no existing URLs sent and no new uploads, keep current images as-is
 
-            // Append newly uploaded images
+            // Append newly uploaded images directly into MongoDB
             if (model.UploadedImages != null && model.UploadedImages.Any())
             {
-                var uploadDir = Path.Combine(_webHostEnvironment.WebRootPath, "uploads", "assets");
-                if (!Directory.Exists(uploadDir))
-                {
-                    Directory.CreateDirectory(uploadDir);
-                }
-
                 var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp", ".avif", ".gif" };
                 foreach (var file in model.UploadedImages)
                 {
@@ -504,17 +522,22 @@ namespace IndiAsset.Controllers
                         var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
                         if (allowedExtensions.Contains(ext))
                         {
-                            var uniqueName = $"{Guid.NewGuid():N}{ext}";
-                            var fullPath = Path.Combine(uploadDir, uniqueName);
-                            using (var stream = new FileStream(fullPath, FileMode.Create))
+                            using var ms = new MemoryStream();
+                            await file.CopyToAsync(ms);
+                            var appImage = new AppImage
                             {
-                                await file.CopyToAsync(stream);
-                            }
+                                FileName = Path.GetFileName(file.FileName),
+                                ContentType = !string.IsNullOrEmpty(file.ContentType) ? file.ContentType : "image/jpeg",
+                                Data = ms.ToArray(),
+                                Size = file.Length,
+                                UploadedAt = DateTime.UtcNow
+                            };
+                            await _mongoDbService.AppImages.InsertOneAsync(appImage);
 
                             asset.Images.Add(new AssetImage
                             {
-                                ImageUrl = $"/uploads/assets/{uniqueName}",
-                                Url = $"/uploads/assets/{uniqueName}",
+                                ImageUrl = $"/Asset/Image/{appImage.Id}",
+                                Url = $"/Asset/Image/{appImage.Id}",
                                 IsPrimary = asset.Images.Count == 0,
                                 Caption = model.Title
                             });
@@ -589,10 +612,13 @@ namespace IndiAsset.Controllers
                 .Find(u => renterIds.Contains(u.Id))
                 .ToListAsync();
 
-            var renterMap = renters.ToDictionary(
-                u => u.Id,
-                u => !string.IsNullOrWhiteSpace(u.FullName) ? u.FullName : (u.Email ?? "Renter")
-            );
+            var renterMap = renters
+                .Where(u => !string.IsNullOrEmpty(u.Id))
+                .GroupBy(u => u.Id)
+                .ToDictionary(
+                    g => g.Key,
+                    g => !string.IsNullOrWhiteSpace(g.First().FullName) ? g.First().FullName : (g.First().Email ?? "Renter")
+                );
 
             var pendingInquiries = ownerBookings
                 .Where(b => b.Status == BookingStatus.Pending)

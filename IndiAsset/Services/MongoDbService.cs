@@ -56,5 +56,8 @@ namespace IndiAsset.Services
 
         public IMongoCollection<Review> Reviews =>
             _database.GetCollection<Review>("Reviews");
+
+        public IMongoCollection<AppImage> AppImages =>
+            _database.GetCollection<AppImage>("AppImages");
     }
 }

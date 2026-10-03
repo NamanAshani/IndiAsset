@@ -169,14 +169,18 @@ namespace IndiAsset.Controllers
                 .Find(u => userIds.Contains(u.Id))
                 .ToListAsync();
 
-            var userMap = users.ToDictionary(
-                u => u.Id,
-                u => !string.IsNullOrWhiteSpace(u.FullName) ? u.FullName : (u.Email ?? "User")
-            );
+            var userMap = users
+                .Where(u => !string.IsNullOrEmpty(u.Id))
+                .GroupBy(u => u.Id)
+                .ToDictionary(
+                    g => g.Key,
+                    g => !string.IsNullOrWhiteSpace(g.First().FullName) ? g.First().FullName : (g.First().Email ?? "User")
+                );
 
             // Fetch categories for asset titles if needed
             var assetIds = renterBookings.Select(b => b.AssetId)
                 .Concat(ownerBookings.Select(b => b.AssetId))
+                .Where(id => !string.IsNullOrEmpty(id))
                 .Distinct()
                 .ToList();
 
@@ -184,19 +188,26 @@ namespace IndiAsset.Controllers
                 .Find(a => a.Id != null && assetIds.Contains(a.Id))
                 .ToListAsync();
 
-            var assetCategoryMap = assets.ToDictionary(a => a.Id ?? string.Empty, a => a.Category);
+            var assetCategoryMap = assets
+                .Where(a => !string.IsNullOrEmpty(a.Id))
+                .GroupBy(a => a.Id!)
+                .ToDictionary(g => g.Key, g => g.First().Category);
 
             // Check which bookings have completed return inspections
             var allBookingIds = renterBookings.Select(b => b.Id ?? string.Empty)
                 .Concat(ownerBookings.Select(b => b.Id ?? string.Empty))
                 .Where(id => !string.IsNullOrEmpty(id))
+                .Distinct()
                 .ToList();
 
             var inspections = await _mongoDbService.LeaseReturns
                 .Find(lr => allBookingIds.Contains(lr.BookingId))
                 .ToListAsync();
 
-            var inspectionMap = inspections.ToDictionary(lr => lr.BookingId, lr => lr.Id ?? string.Empty);
+            var inspectionMap = inspections
+                .Where(lr => !string.IsNullOrEmpty(lr.BookingId))
+                .GroupBy(lr => lr.BookingId)
+                .ToDictionary(g => g.Key, g => g.First().Id ?? string.Empty);
 
             var activeTab = "renter";
             if (!string.IsNullOrEmpty(tab) && string.Equals(tab, "owner", StringComparison.OrdinalIgnoreCase))
@@ -457,13 +468,7 @@ namespace IndiAsset.Controllers
                 return View(model);
             }
 
-            // Save uploaded return photos
-            var uploadDir = Path.Combine(_webHostEnvironment.WebRootPath, "uploads", "returns");
-            if (!Directory.Exists(uploadDir))
-            {
-                Directory.CreateDirectory(uploadDir);
-            }
-
+            // Save uploaded return photos directly into MongoDB database
             var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp", ".avif", ".gif" };
             var savedReturnImageUrls = new List<string>();
 
@@ -474,13 +479,18 @@ namespace IndiAsset.Controllers
                     var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
                     if (allowedExtensions.Contains(ext))
                     {
-                        var uniqueName = $"{Guid.NewGuid():N}{ext}";
-                        var fullPath = Path.Combine(uploadDir, uniqueName);
-                        using (var stream = new FileStream(fullPath, FileMode.Create))
+                        using var ms = new MemoryStream();
+                        await file.CopyToAsync(ms);
+                        var appImage = new AppImage
                         {
-                            await file.CopyToAsync(stream);
-                        }
-                        savedReturnImageUrls.Add($"/uploads/returns/{uniqueName}");
+                            FileName = Path.GetFileName(file.FileName),
+                            ContentType = !string.IsNullOrEmpty(file.ContentType) ? file.ContentType : "image/jpeg",
+                            Data = ms.ToArray(),
+                            Size = file.Length,
+                            UploadedAt = DateTime.UtcNow
+                        };
+                        await _mongoDbService.AppImages.InsertOneAsync(appImage);
+                        savedReturnImageUrls.Add($"/Asset/Image/{appImage.Id}");
                     }
                 }
             }
