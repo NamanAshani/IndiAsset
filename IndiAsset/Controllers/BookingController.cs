@@ -121,23 +121,34 @@ namespace IndiAsset.Controllers
                 TotalAmount = totalAmount,
                 Status = BookingStatus.Pending,
                 Notes = model.Notes?.Trim(),
+                IsSecurityDepositPaid = securityDeposit <= 0,
                 CreatedAt = DateTime.UtcNow
             };
 
             await _mongoDbService.Bookings.InsertOneAsync(booking);
 
             // Notify Asset Owner
+            var ownerNotice = securityDeposit > 0
+                ? $"{currentUser.FullName ?? currentUser.Email} requested to lease '{asset.Title}' for {days} days ({booking.StartDate:dd MMM yyyy} to {booking.EndDate:dd MMM yyyy}). Request is awaiting renter's escrow deposit payment of ₹{securityDeposit:N0}."
+                : $"{currentUser.FullName ?? currentUser.Email} requested to lease '{asset.Title}' for {days} days ({booking.StartDate:dd MMM yyyy} to {booking.EndDate:dd MMM yyyy}).";
+
             var notification = new Notification
             {
                 UserId = asset.OwnerId,
                 Title = "New Lease Request Received",
-                Message = $"{currentUser.FullName ?? currentUser.Email} requested to lease '{asset.Title}' for {days} days ({booking.StartDate:dd MMM yyyy} to {booking.EndDate:dd MMM yyyy}).",
+                Message = ownerNotice,
                 Type = "BookingRequest",
                 TargetUrl = Url.Action("MyBookings", "Booking", new { tab = "owner" }) ?? "/Booking/MyBookings?tab=owner",
                 CreatedAt = DateTime.UtcNow,
                 IsRead = false
             };
             await _mongoDbService.Notifications.InsertOneAsync(notification);
+
+            if (securityDeposit > 0)
+            {
+                TempData["SuccessMessage"] = $"Lease request created! Please complete payment of the refundable escrow security deposit (₹{securityDeposit:N0}) so the asset owner can approve your lease.";
+                return RedirectToAction(nameof(PayDeposit), new { id = booking.Id });
+            }
 
             TempData["SuccessMessage"] = $"Lease request for '{asset.Title}' for {days} days submitted successfully! The owner has been notified.";
             return RedirectToAction(nameof(MyBookings));
@@ -247,7 +258,10 @@ namespace IndiAsset.Controllers
                     CreatedAt = b.CreatedAt,
                     IsOwner = false,
                     HasReturnInspection = inspectionMap.ContainsKey(b.Id ?? string.Empty),
-                    ReturnInspectionId = inspectionMap.GetValueOrDefault(b.Id ?? string.Empty)
+                    ReturnInspectionId = inspectionMap.GetValueOrDefault(b.Id ?? string.Empty),
+                    IsSecurityDepositPaid = b.IsSecurityDepositPaid || b.SecurityDeposit <= 0 || b.Status == BookingStatus.Active || b.Status == BookingStatus.Approved || b.Status == BookingStatus.Completed,
+                    SecurityDepositPaidAmount = b.SecurityDepositPaidAmount > 0 ? b.SecurityDepositPaidAmount : (b.IsSecurityDepositPaid ? b.SecurityDeposit : 0),
+                    SecurityDepositPaidAt = b.SecurityDepositPaidAt
                 }).ToList(),
 
                 AsOwnerBookings = ownerBookings.Select(b => new BookingItemViewModel
@@ -269,7 +283,10 @@ namespace IndiAsset.Controllers
                     CreatedAt = b.CreatedAt,
                     IsOwner = true,
                     HasReturnInspection = inspectionMap.ContainsKey(b.Id ?? string.Empty),
-                    ReturnInspectionId = inspectionMap.GetValueOrDefault(b.Id ?? string.Empty)
+                    ReturnInspectionId = inspectionMap.GetValueOrDefault(b.Id ?? string.Empty),
+                    IsSecurityDepositPaid = b.IsSecurityDepositPaid || b.SecurityDeposit <= 0 || b.Status == BookingStatus.Active || b.Status == BookingStatus.Approved || b.Status == BookingStatus.Completed,
+                    SecurityDepositPaidAmount = b.SecurityDepositPaidAmount > 0 ? b.SecurityDepositPaidAmount : (b.IsSecurityDepositPaid ? b.SecurityDeposit : 0),
+                    SecurityDepositPaidAt = b.SecurityDepositPaidAt
                 }).ToList()
             };
 
@@ -292,6 +309,13 @@ namespace IndiAsset.Controllers
 
             if (booking == null) return NotFound();
             if (booking.OwnerId != currentUserId) return Forbid();
+
+            // Guard: Security deposit must be paid first before lease request can be approved
+            if (!booking.IsSecurityDepositPaid && booking.SecurityDeposit > 0)
+            {
+                TempData["ErrorMessage"] = $"Cannot approve lease request: Renter has not paid the required escrow security deposit of ₹{booking.SecurityDeposit:N0} yet.";
+                return RedirectToAction(nameof(MyBookings), new { tab = "owner" });
+            }
 
             // Set to Active if start date is today or earlier, otherwise Approved
             var newStatus = booking.StartDate <= DateTime.UtcNow.Date ? BookingStatus.Active : BookingStatus.Approved;
@@ -354,6 +378,146 @@ namespace IndiAsset.Controllers
 
             TempData["SuccessMessage"] = "Lease request declined.";
             return RedirectToAction(nameof(MyBookings), new { tab = "owner" });
+        }
+
+        // ======================================================
+        // UPFRONT SECURITY DEPOSIT PAYMENT VIA RAZORPAY
+        // ======================================================
+        [HttpGet]
+        public async Task<IActionResult> PayDeposit(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return NotFound();
+
+            var currentUserId = _userManager.GetUserId(User);
+            var booking = await _mongoDbService.Bookings
+                .Find(b => b.Id == id)
+                .FirstOrDefaultAsync();
+
+            if (booking == null) return NotFound();
+            if (booking.RenterId != currentUserId && booking.OwnerId != currentUserId) return Forbid();
+
+            // If deposit already paid or not required
+            if (booking.IsSecurityDepositPaid || booking.SecurityDeposit <= 0)
+            {
+                TempData["SuccessMessage"] = "Security deposit has already been paid and secured in escrow for this lease request.";
+                return RedirectToAction(nameof(MyBookings));
+            }
+
+            var asset = await _mongoDbService.Assets
+                .Find(a => a.Id == booking.AssetId)
+                .FirstOrDefaultAsync();
+
+            var owner = await _userManager.FindByIdAsync(booking.OwnerId);
+            var renter = await _userManager.FindByIdAsync(booking.RenterId);
+
+            var (orderSuccess, orderId, orderError) = await _razorpayService.CreateOrderAsync(
+                booking.SecurityDeposit,
+                $"dep_{booking.Id}",
+                $"Escrow Security Deposit for {booking.AssetTitle ?? "Equipment"}");
+
+            var viewModel = new PayDepositViewModel
+            {
+                BookingId = booking.Id ?? string.Empty,
+                AssetId = booking.AssetId,
+                AssetTitle = booking.AssetTitle ?? asset?.Title ?? "Asset",
+                AssetCategory = asset?.Category ?? "Equipment",
+                PrimaryImageUrl = booking.AssetImageUrl ?? asset?.Images?.FirstOrDefault()?.Url,
+                OwnerName = owner?.FullName ?? owner?.Email ?? "Asset Owner",
+                RenterName = renter?.FullName ?? renter?.Email ?? "Renter",
+                StartDate = booking.StartDate,
+                EndDate = booking.EndDate,
+                TotalDays = booking.TotalDays > 0 ? booking.TotalDays : Math.Max(1, (int)(booking.EndDate.Date - booking.StartDate.Date).TotalDays),
+                DailyRent = booking.DailyRent,
+                TotalRent = booking.TotalRent,
+                SecurityDeposit = booking.SecurityDeposit,
+                TotalAmount = booking.TotalAmount,
+                RazorpayKeyId = _razorpayService.GetKeyId(),
+                RazorpayOrderId = orderId,
+                IsSimulationMode = _razorpayService.IsSimulationMode() || (orderId?.StartsWith("order_sim_") == true) || (orderId?.StartsWith("order_demo_") == true)
+            };
+
+            return View(viewModel);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> PayDeposit(PayDepositViewModel model)
+        {
+            if (string.IsNullOrEmpty(model.BookingId)) return NotFound();
+
+            var currentUserId = _userManager.GetUserId(User);
+            var booking = await _mongoDbService.Bookings
+                .Find(b => b.Id == model.BookingId)
+                .FirstOrDefaultAsync();
+
+            if (booking == null) return NotFound();
+            if (booking.RenterId != currentUserId) return Forbid();
+
+            if (string.IsNullOrWhiteSpace(model.RazorpayPaymentId))
+            {
+                ModelState.AddModelError("RazorpayPaymentId", "Payment of security deposit via Razorpay is required.");
+                model.RazorpayKeyId = _razorpayService.GetKeyId();
+                model.IsSimulationMode = _razorpayService.IsSimulationMode();
+                return View(model);
+            }
+
+            var isSignatureValid = _razorpayService.VerifyPaymentSignature(
+                model.RazorpayOrderId ?? string.Empty,
+                model.RazorpayPaymentId,
+                model.RazorpaySignature ?? string.Empty);
+
+            if (!isSignatureValid)
+            {
+                ModelState.AddModelError("RazorpayPaymentId", "Deposit payment verification failed. Please try completing payment again.");
+                model.RazorpayKeyId = _razorpayService.GetKeyId();
+                model.IsSimulationMode = _razorpayService.IsSimulationMode();
+                return View(model);
+            }
+
+            // Update Booking status
+            var bookingUpdate = Builders<Booking>.Update
+                .Set(b => b.IsSecurityDepositPaid, true)
+                .Set(b => b.SecurityDepositPaymentId, model.RazorpayPaymentId)
+                .Set(b => b.SecurityDepositOrderId, model.RazorpayOrderId)
+                .Set(b => b.SecurityDepositPaidAmount, booking.SecurityDeposit)
+                .Set(b => b.SecurityDepositPaidAt, DateTime.UtcNow);
+
+            await _mongoDbService.Bookings.UpdateOneAsync(b => b.Id == model.BookingId, bookingUpdate);
+
+            // Record Payment
+            var payment = new Payment
+            {
+                BookingId = booking.Id ?? string.Empty,
+                PayerId = booking.RenterId,
+                PayeeId = booking.OwnerId,
+                RentAmount = 0,
+                DepositAmount = booking.SecurityDeposit,
+                Status = PaymentStatus.Paid,
+                PaymentMethod = "Razorpay Escrow Deposit",
+                TransactionId = model.RazorpayPaymentId,
+                RazorpayOrderId = model.RazorpayOrderId,
+                RazorpaySignature = model.RazorpaySignature,
+                CreatedAt = DateTime.UtcNow,
+                PaidAt = DateTime.UtcNow
+            };
+            await _mongoDbService.Payments.InsertOneAsync(payment);
+
+            // Notify Owner that deposit is paid and request is ready for approval
+            var renterUser = await _userManager.FindByIdAsync(booking.RenterId);
+            var notification = new Notification
+            {
+                UserId = booking.OwnerId,
+                Title = "Security Deposit Paid! Lease Ready for Approval 🛡️",
+                Message = $"{renterUser?.FullName ?? renterUser?.Email ?? "Renter"} has paid the required ₹{booking.SecurityDeposit:N0} security deposit into escrow. You can now approve the lease request for '{booking.AssetTitle}'.",
+                Type = "DepositPaid",
+                TargetUrl = Url.Action("MyBookings", "Booking", new { tab = "owner" }) ?? "/Booking/MyBookings?tab=owner",
+                CreatedAt = DateTime.UtcNow,
+                IsRead = false
+            };
+            await _mongoDbService.Notifications.InsertOneAsync(notification);
+
+            TempData["SuccessMessage"] = $"Security deposit of ₹{booking.SecurityDeposit:N0} paid and secured in escrow! The asset owner has been notified to approve your lease request.";
+            return RedirectToAction(nameof(MyBookings));
         }
 
         // ======================================================
@@ -427,20 +591,28 @@ namespace IndiAsset.Controllers
                 baselineImages.Add(booking.AssetImageUrl);
             }
 
-            var amountToPay = booking.TotalAmount > 0
-                ? booking.TotalAmount
-                : (booking.TotalRent + booking.SecurityDeposit);
+            // 4. Calculate adjusted settlement payment:
+            // Security deposit was already paid upfront before lease approval.
+            // When returning the asset, security deposit is adjusted against total rent:
+            // Example: Rent ₹300,000 - Deposit ₹50,000 = ₹250,000
+            decimal totalRent = booking.TotalRent > 0 ? booking.TotalRent : (booking.TotalDays * booking.DailyRent);
+            decimal depositPaid = (booking.IsSecurityDepositPaid || booking.Status == BookingStatus.Active || booking.Status == BookingStatus.Approved || booking.Status == BookingStatus.Completed)
+                ? (booking.SecurityDepositPaidAmount > 0 ? booking.SecurityDepositPaidAmount : booking.SecurityDeposit)
+                : 0;
 
-            if (amountToPay <= 0)
+            decimal amountToPay = Math.Max(0, totalRent - depositPaid);
+            decimal excessRefund = totalRent < depositPaid ? (depositPaid - totalRent) : 0;
+
+            string orderId = string.Empty;
+            if (amountToPay > 0)
             {
-                amountToPay = booking.DailyRent > 0 ? booking.DailyRent : 100;
+                var receiptId = $"ret_{booking.Id}";
+                var (orderSuccess, oId, orderError) = await _razorpayService.CreateOrderAsync(
+                    amountToPay,
+                    receiptId,
+                    $"Return settlement for {booking.AssetTitle ?? "Equipment"}");
+                orderId = oId;
             }
-
-            var receiptId = $"ret_{booking.Id}";
-            var (orderSuccess, orderId, orderError) = await _razorpayService.CreateOrderAsync(
-                amountToPay,
-                receiptId,
-                $"Return settlement for {booking.AssetTitle ?? "Equipment"}");
 
             var model = new ReturnAssetUploadViewModel
             {
@@ -456,12 +628,17 @@ namespace IndiAsset.Controllers
                 EndDate = booking.EndDate,
                 TotalDays = booking.TotalDays > 0 ? booking.TotalDays : Math.Max(1, (int)(booking.EndDate.Date - booking.StartDate.Date).TotalDays),
                 DailyRent = booking.DailyRent,
-                TotalRent = booking.TotalRent,
-                SecurityDeposit = booking.SecurityDeposit,
-                TotalAmount = booking.TotalAmount > 0 ? booking.TotalAmount : amountToPay,
+                TotalRent = totalRent,
+                SecurityDeposit = depositPaid,
+                TotalAmount = totalRent,
                 AmountToPay = amountToPay,
+                DepositAdjusted = depositPaid,
+                ExcessDepositRefund = excessRefund,
+                IsDepositAlreadyPaid = depositPaid > 0,
+                PaymentCompleted = (amountToPay <= 0),
                 RazorpayKeyId = _razorpayService.GetKeyId(),
                 RazorpayOrderId = orderId,
+                IsSimulationMode = _razorpayService.IsSimulationMode() || (orderId?.StartsWith("order_sim_") == true) || (orderId?.StartsWith("order_demo_") == true),
                 Rating = 5
             };
 
@@ -492,32 +669,43 @@ namespace IndiAsset.Controllers
                 baselineImages.Add(booking.AssetImageUrl);
             }
 
-            // 1. Validate Razorpay payment
-            if (string.IsNullOrWhiteSpace(model.RazorpayPaymentId))
+            decimal totalRent = booking.TotalRent > 0 ? booking.TotalRent : (booking.TotalDays * booking.DailyRent);
+            decimal depositPaid = (booking.IsSecurityDepositPaid || booking.Status == BookingStatus.Active || booking.Status == BookingStatus.Approved || booking.Status == BookingStatus.Completed)
+                ? (booking.SecurityDepositPaidAmount > 0 ? booking.SecurityDepositPaidAmount : booking.SecurityDeposit)
+                : 0;
+            decimal amountToPay = Math.Max(0, totalRent - depositPaid);
+            decimal excessRefund = totalRent < depositPaid ? (depositPaid - totalRent) : 0;
+
+            // 1. Validate Razorpay payment only if net settlement amountToPay > 0
+            if (amountToPay > 0)
             {
-                ModelState.AddModelError("RazorpayPaymentId", "Payment via Razorpay is required to complete returning this asset.");
-                model.BaselineOriginalImageUrls = baselineImages;
-                model.RazorpayKeyId = _razorpayService.GetKeyId();
-                if (string.IsNullOrWhiteSpace(model.RazorpayOrderId))
+                if (string.IsNullOrWhiteSpace(model.RazorpayPaymentId))
                 {
-                    var payable = booking.TotalAmount > 0 ? booking.TotalAmount : (booking.TotalRent + booking.SecurityDeposit);
-                    var (_, oId, _) = await _razorpayService.CreateOrderAsync(payable, $"ret_{booking.Id}", $"Return settlement for {booking.AssetTitle}");
-                    model.RazorpayOrderId = oId;
+                    ModelState.AddModelError("RazorpayPaymentId", "Payment via Razorpay is required to complete returning this asset.");
+                    model.BaselineOriginalImageUrls = baselineImages;
+                    model.RazorpayKeyId = _razorpayService.GetKeyId();
+                    if (string.IsNullOrWhiteSpace(model.RazorpayOrderId))
+                    {
+                        var (_, oId, _) = await _razorpayService.CreateOrderAsync(amountToPay, $"ret_{booking.Id}", $"Return settlement for {booking.AssetTitle}");
+                        model.RazorpayOrderId = oId;
+                    }
+                    model.IsSimulationMode = _razorpayService.IsSimulationMode() || (model.RazorpayOrderId?.StartsWith("order_sim_") == true) || (model.RazorpayOrderId?.StartsWith("order_demo_") == true);
+                    return View(model);
                 }
-                return View(model);
-            }
 
-            var isSignatureValid = _razorpayService.VerifyPaymentSignature(
-                model.RazorpayOrderId ?? string.Empty,
-                model.RazorpayPaymentId,
-                model.RazorpaySignature ?? string.Empty);
+                var isSignatureValid = _razorpayService.VerifyPaymentSignature(
+                    model.RazorpayOrderId ?? string.Empty,
+                    model.RazorpayPaymentId,
+                    model.RazorpaySignature ?? string.Empty);
 
-            if (!isSignatureValid)
-            {
-                ModelState.AddModelError("RazorpayPaymentId", "Payment verification failed. Please try completing payment again.");
-                model.BaselineOriginalImageUrls = baselineImages;
-                model.RazorpayKeyId = _razorpayService.GetKeyId();
-                return View(model);
+                if (!isSignatureValid)
+                {
+                    ModelState.AddModelError("RazorpayPaymentId", "Payment verification failed. Please try completing payment again.");
+                    model.BaselineOriginalImageUrls = baselineImages;
+                    model.RazorpayKeyId = _razorpayService.GetKeyId();
+                    model.IsSimulationMode = _razorpayService.IsSimulationMode() || (model.RazorpayOrderId?.StartsWith("order_sim_") == true) || (model.RazorpayOrderId?.StartsWith("order_demo_") == true);
+                    return View(model);
+                }
             }
 
             // 2. Validate Photos
@@ -526,6 +714,7 @@ namespace IndiAsset.Controllers
                 ModelState.AddModelError("ReturnPhotos", "Please upload at least one post-use photo of the asset.");
                 model.BaselineOriginalImageUrls = baselineImages;
                 model.RazorpayKeyId = _razorpayService.GetKeyId();
+                model.IsSimulationMode = _razorpayService.IsSimulationMode() || (model.RazorpayOrderId?.StartsWith("order_sim_") == true) || (model.RazorpayOrderId?.StartsWith("order_demo_") == true);
                 return View(model);
             }
 
@@ -552,6 +741,7 @@ namespace IndiAsset.Controllers
                 ModelState.AddModelError("ReturnPhotos", "Valid image files (.jpg, .png, .webp) are required.");
                 model.BaselineOriginalImageUrls = baselineImages;
                 model.RazorpayKeyId = _razorpayService.GetKeyId();
+                model.IsSimulationMode = _razorpayService.IsSimulationMode() || (model.RazorpayOrderId?.StartsWith("order_sim_") == true) || (model.RazorpayOrderId?.StartsWith("order_demo_") == true);
                 return View(model);
             }
 
@@ -561,11 +751,11 @@ namespace IndiAsset.Controllers
                 BookingId = booking.Id ?? string.Empty,
                 PayerId = currentUserId ?? booking.RenterId,
                 PayeeId = booking.OwnerId,
-                RentAmount = booking.TotalRent,
-                DepositAmount = booking.SecurityDeposit,
+                RentAmount = totalRent,
+                DepositAmount = -depositPaid, // Adjusted/credited from pre-paid escrow
                 Status = PaymentStatus.Paid,
-                PaymentMethod = "Razorpay",
-                TransactionId = model.RazorpayPaymentId,
+                PaymentMethod = amountToPay > 0 ? "Razorpay" : "Escrow Deposit Offset",
+                TransactionId = model.RazorpayPaymentId ?? $"adj_{booking.Id}",
                 RazorpayOrderId = model.RazorpayOrderId,
                 RazorpaySignature = model.RazorpaySignature,
                 CreatedAt = DateTime.UtcNow,
@@ -586,8 +776,8 @@ namespace IndiAsset.Controllers
                 ReturnImageUrls = savedReturnImageUrls,
                 DamageDeduction = 0,
                 OtherDeduction = 0,
-                RefundAmount = booking.SecurityDeposit, // Full security deposit refund recommendation
-                InspectionNotes = $"Automatic comparison: {savedReturnImageUrls.Count} post-use photos captured. Condition integrity verified.",
+                RefundAmount = excessRefund,
+                InspectionNotes = $"Settlement verified: Total rental ₹{totalRent:N0} adjusted with pre-paid deposit of ₹{depositPaid:N0}. Final payment of ₹{amountToPay:N0} settled.",
                 IsInspected = true,
                 IsSettled = true,
                 ReturnedAt = DateTime.UtcNow,
@@ -621,8 +811,8 @@ namespace IndiAsset.Controllers
             var notification = new Notification
             {
                 UserId = booking.OwnerId,
-                Title = "Asset Returned & Settlement Paid via Razorpay! 💳📸",
-                Message = $"Renter has paid the settlement via Razorpay (Txn: {model.RazorpayPaymentId}), returned '{booking.AssetTitle}', and submitted {savedReturnImageUrls.Count} return photos.",
+                Title = "Asset Returned & Settlement Finalized! 💳📸",
+                Message = $"Renter returned '{booking.AssetTitle}'. Total rent ₹{totalRent:N0} adjusted with pre-paid ₹{depositPaid:N0} deposit. Final payment: ₹{amountToPay:N0}.",
                 Type = "AssetReturned",
                 TargetUrl = Url.Action("InspectionReview", "Booking", new { bookingId = model.BookingId }) ?? $"/Booking/InspectionReview?bookingId={model.BookingId}",
                 CreatedAt = DateTime.UtcNow,
@@ -630,7 +820,7 @@ namespace IndiAsset.Controllers
             };
             await _mongoDbService.Notifications.InsertOneAsync(notification);
 
-            TempData["SuccessMessage"] = "Payment verified and asset returned successfully! Inspection & payment receipt ready.";
+            TempData["SuccessMessage"] = $"Asset returned successfully! Total rent of ₹{totalRent:N0} was adjusted with your ₹{depositPaid:N0} pre-paid security deposit. Final settlement of ₹{amountToPay:N0} settled.";
             return RedirectToAction(nameof(InspectionReview), new { bookingId = model.BookingId });
         }
 

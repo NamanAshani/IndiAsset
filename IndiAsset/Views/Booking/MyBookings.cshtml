@@ -161,18 +161,51 @@
                                         </div>
                                         <div class="d-flex justify-content-between mb-1">
                                             <span class="text-muted">Total Rent:</span>
-                                            <span class="text-white">Rs @item.TotalRent.ToString("N0")</span>
+                                            <span class="text-white">₹@item.TotalRent.ToString("N0")</span>
                                         </div>
                                         <div class="d-flex justify-content-between mb-1">
-                                            <span class="text-muted">Refundable Security Deposit:</span>
-                                            <span class="text-white">Rs @item.SecurityDeposit.ToString("N0")</span>
+                                            <span class="text-muted">Escrow Security Deposit:</span>
+                                            @if (item.SecurityDeposit > 0)
+                                            {
+                                                @if (item.IsSecurityDepositPaid)
+                                                {
+                                                    <span class="text-success fw-semibold"><i class="fa-solid fa-shield-check me-1"></i>₹@item.SecurityDeposit.ToString("N0") (Paid in Escrow)</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-warning fw-semibold"><i class="fa-solid fa-clock me-1"></i>₹@item.SecurityDeposit.ToString("N0") (Payment Required)</span>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">₹0</span>
+                                            }
                                         </div>
                                         <div class="d-flex justify-content-between border-top border-secondary border-opacity-25 pt-2 mt-2 fw-bold text-white">
-                                            <span>Total Value:</span>
-                                            <span class="text-primary">Rs @item.TotalAmount.ToString("N0")</span>
+                                            <span>Est. Settlement on Return:</span>
+                                            <span class="text-primary">₹@Math.Max(0, item.TotalRent - (item.IsSecurityDepositPaid ? item.SecurityDeposit : 0)).ToString("N0")</span>
                                         </div>
                                     </div>
+                                    @if (item.Status == BookingStatus.Pending && !item.IsSecurityDepositPaid && item.SecurityDeposit > 0)
+                                    {
+                                        <div class="alert alert-warning py-2 px-3 small rounded-3 mb-3 d-flex align-items-center justify-content-between gap-2 border border-warning border-opacity-25" style="background: rgba(245, 158, 11, 0.12);">
+                                            <div>
+                                                <i class="fa-solid fa-shield-halved text-warning me-1"></i>
+                                                <strong class="text-warning">Deposit Required:</strong>
+                                                <span class="text-white-50">Pay deposit into escrow to enable owner approval.</span>
+                                            </div>
+                                            <a asp-controller="Booking" asp-action="PayDeposit" asp-route-id="@item.BookingId" class="btn btn-warning btn-sm rounded-pill px-3 py-1 fw-bold text-dark flex-shrink-0 shadow-sm">
+                                                Pay ₹@item.SecurityDeposit.ToString("N0")
+                                            </a>
+                                        </div>
+                                    }
                                     <div class="mt-auto d-flex flex-wrap gap-2">
+                                        @if (item.Status == BookingStatus.Pending && !item.IsSecurityDepositPaid && item.SecurityDeposit > 0)
+                                        {
+                                            <a asp-controller="Booking" asp-action="PayDeposit" asp-route-id="@item.BookingId" class="btn btn-warning btn-sm rounded-pill px-3 py-2 fw-bold text-dark shadow-sm">
+                                                <i class="fa-solid fa-shield-halved me-1"></i> Pay Security Deposit (₹@item.SecurityDeposit.ToString("N0"))
+                                            </a>
+                                        }
                                         <a asp-controller="Chat" asp-action="Index" asp-route-recipientId="@item.OtherUserId" class="btn btn-outline-primary btn-sm rounded-pill py-2 px-3 fw-semibold">
                                             <i class="fa-regular fa-comments me-1"></i> Chat
                                         </a>
@@ -277,11 +310,25 @@
                                         </div>
                                         <div class="d-flex justify-content-between mb-1">
                                             <span class="text-muted">Earnings (Rent):</span>
-                                            <span class="fw-semibold text-success">Rs @item.TotalRent.ToString("N0")</span>
+                                            <span class="fw-semibold text-success">₹@item.TotalRent.ToString("N0")</span>
                                         </div>
                                         <div class="d-flex justify-content-between border-top border-secondary border-opacity-25 pt-2 mt-2">
                                             <span class="text-muted">Escrow Deposit:</span>
-                                            <span class="text-white">Rs @item.SecurityDeposit.ToString("N0")</span>
+                                            @if (item.SecurityDeposit > 0)
+                                            {
+                                                if (item.IsSecurityDepositPaid)
+                                                {
+                                                    <span class="text-success fw-semibold"><i class="fa-solid fa-shield-check me-1"></i>₹@item.SecurityDeposit.ToString("N0") (Secured in Escrow)</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-warning fw-semibold"><i class="fa-solid fa-clock me-1"></i>₹@item.SecurityDeposit.ToString("N0") (Unpaid by Renter)</span>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">₹0</span>
+                                            }
                                         </div>
                                     </div>
                                     <div class="mt-auto d-flex flex-wrap gap-2">
@@ -296,12 +343,21 @@
                                         }
                                         @if (item.Status == BookingStatus.Pending)
                                         {
-                                            <form method="post" asp-action="Approve" asp-route-id="@item.BookingId" class="d-inline">
-                                                @Html.AntiForgeryToken()
-                                                <button type="submit" class="btn btn-success btn-sm rounded-pill px-3 py-2 fw-semibold">
-                                                    <i class="fa-solid fa-check me-1"></i> Accept Request
+                                            @if (item.IsSecurityDepositPaid || item.SecurityDeposit <= 0)
+                                            {
+                                                <form method="post" asp-action="Approve" asp-route-id="@item.BookingId" class="d-inline">
+                                                    @Html.AntiForgeryToken()
+                                                    <button type="submit" class="btn btn-success btn-sm rounded-pill px-3 py-2 fw-semibold">
+                                                        <i class="fa-solid fa-check me-1"></i> Accept Request
+                                                    </button>
+                                                </form>
+                                            }
+                                            else
+                                            {
+                                                <button class="btn btn-secondary btn-sm rounded-pill px-3 py-2 fw-semibold" disabled title="Renter must pay the escrow deposit first">
+                                                    <i class="fa-solid fa-lock me-1"></i> Awaiting Renter Deposit
                                                 </button>
-                                            </form>
+                                            }
                                             <form method="post" asp-action="Reject" asp-route-id="@item.BookingId" class="d-inline" onsubmit="return confirm('Decline this lease inquiry?');">
                                                 @Html.AntiForgeryToken()
                                                 <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3 py-2">Decline</button>

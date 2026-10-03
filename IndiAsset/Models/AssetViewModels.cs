@@ -154,5 +154,8 @@ namespace IndiAsset.Models
         public bool IsOwner { get; set; }
         public bool HasReturnInspection { get; set; }
         public string? ReturnInspectionId { get; set; }
+        public bool IsSecurityDepositPaid { get; set; }
+        public decimal SecurityDepositPaidAmount { get; set; }
+        public DateTime? SecurityDepositPaidAt { get; set; }
     }
 }

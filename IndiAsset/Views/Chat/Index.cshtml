@@ -133,24 +133,8 @@
         }
 
         .online-indicator {
-            width: 12px;
-            height: 12px;
-            border: 2px solid white;
-            border-radius: 50%;
-            position: absolute;
-            bottom: 0;
-            right: 0;
-            transition: background 0.3s ease;
+            display: none !important;
         }
-
-            .online-indicator.online {
-                background: #22c55e;
-                box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
-            }
-
-            .online-indicator.offline {
-                background: #94a3b8;
-            }
 
         .conversation-meta {
             flex: 1;
@@ -524,10 +508,6 @@
 
                                 <div class="user-avatar">
                                     @initial
-
-                                    <span class="online-indicator @(conv.IsOnline ? "online" : "offline")"
-                                          id="user-status-dot-@conv.OtherUserId">
-                                    </span>
                                 </div>
 
                                 <div class="conversation-meta">
@@ -597,37 +577,10 @@
 
                         <div class="user-avatar me-3">
                             @recipientInitial
-
-                            <span class="online-indicator @(Model.ActiveRecipientIsOnline ? "online" : "offline")"
-                                  id="activeRecipientDot">
-                            </span>
                         </div>
 
                         <div class="chat-header-info">
                             <h3>@recipientName</h3>
-
-                            <span id="activeRecipientStatusText"
-                                  class="@(Model.ActiveRecipientIsOnline ? "online-text" : "")">
-
-                                @if (Model.ActiveRecipientIsOnline)
-                                {
-                                    <i class="fas fa-circle text-success me-1"
-                                       style="font-size: 8px;"></i>
-
-                                    <span>Online • Ready to chat</span>
-                                }
-                                else
-                                {
-                                    <i class="fas fa-circle text-muted me-1"
-                                       style="font-size: 8px;"></i>
-
-                                    <span>
-                                        Offline@(Model.ActiveRecipientLastSeenAt.HasValue
-                                                                                    ? $" • Last seen {Model.ActiveRecipientLastSeenAt.Value.ToLocalTime():MMM dd, hh:mm tt}"
-                                                                                    : "")
-                                    </span>
-                                }
-                            </span>
                         </div>
                     </div>
 
@@ -804,7 +757,7 @@
 
         connectionBadge.innerHTML =
         '<i class="fas fa-exclamation-circle me-1"></i>' +
-        (text || 'Offline');
+        (text || 'Disconnected');
         }
         }
 
@@ -981,85 +934,7 @@
         connection.on(
         "UserStatusChanged",
         function (userId, isOnline, lastSeen) {
-
-        const userDot =
-        document.getElementById(
-        `user-status-dot-${userId}`
-        );
-
-        if (userDot) {
-
-        userDot.className =
-        `online-indicator ${isOnline ? 'online' : 'offline'}`;
-        }
-
-
-        if (userId === recipientId) {
-
-        const activeDot =
-        document.getElementById(
-        "activeRecipientDot"
-        );
-
-        const activeText =
-        document.getElementById(
-        "activeRecipientStatusText"
-        );
-
-
-        if (activeDot) {
-
-        activeDot.className =
-        `online-indicator ${isOnline ? 'online' : 'offline'}`;
-        }
-
-
-        if (activeText) {
-
-        if (isOnline) {
-
-        activeText.className =
-        "online-text";
-
-        activeText.innerHTML =
-        '<i class="fas fa-circle text-success me-1" style="font-size: 8px;"></i>' +
-        '<span>Online • Ready to chat</span>';
-
-        }
-        else {
-
-        activeText.className = "";
-
-        let lastSeenStr = "";
-
-        if (lastSeen) {
-
-        try {
-
-        const dt =
-        new Date(lastSeen);
-
-        lastSeenStr =
-        " • Last seen " +
-        dt.toLocaleTimeString(
-        [],
-        {
-        hour: '2-digit',
-        minute: '2-digit'
-        }
-        );
-
-        }
-        catch (e) {
-        }
-        }
-
-        activeText.innerHTML =
-        `<i class="fas fa-circle text-muted me-1" style="font-size: 8px;"></i>` +
-        `<span>Offline${lastSeenStr}</span>`;
-        }
-        }
-        }
+            // Status and last seen indicators removed per user request
         }
         );
 
@@ -1316,10 +1191,6 @@
 
         ${initial}
 
-        <span class="online-indicator online"
-        id="user-status-dot-${msg.senderId}">
-        </span>
-
         </div>
 
         <div class="conversation-meta">
@@ -1526,69 +1397,10 @@
         }
 
 
-        // Query initial online status
+        // Query initial online status (noop - presence indicator disabled)
         connection.invoke(
         "GetOnlineUsers"
         )
-        .then(function (onlineUserIds) {
-
-        if (
-        onlineUserIds &&
-        Array.isArray(onlineUserIds)
-        ) {
-
-        onlineUserIds.forEach(
-        uid => {
-
-        const userDot =
-        document.getElementById(
-        `user-status-dot-${uid}`
-        );
-
-
-        if (userDot) {
-
-        userDot.className =
-        "online-indicator online";
-        }
-
-
-        if (uid === recipientId) {
-
-        const activeDot =
-        document.getElementById(
-        "activeRecipientDot"
-        );
-
-        const activeText =
-        document.getElementById(
-        "activeRecipientStatusText"
-        );
-
-
-        if (activeDot) {
-
-        activeDot.className =
-        "online-indicator online";
-        }
-
-
-        if (activeText) {
-
-        activeText.className =
-        "online-text";
-
-
-        activeText.innerHTML =
-        '<i class="fas fa-circle text-success me-1" style="font-size: 8px;"></i>' +
-        '<span>Online • Ready to chat</span>';
-        }
-        }
-        }
-        );
-        }
-
-        })
         .catch(console.error);
 
         })
@@ -1704,7 +1516,7 @@
 
         setConnectionStatus(
         'error',
-        'Offline'
+        'Disconnected'
         );
         }
         );

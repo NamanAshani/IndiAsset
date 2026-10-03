@@ -10,6 +10,55 @@ using MongoDB.Driver;
 var builder = WebApplication.CreateBuilder(args);
 
 // ======================================================
+// LOAD .ENV ENVIRONMENT VARIABLES
+// ======================================================
+var envCandidates = new[]
+{
+    Path.Combine(builder.Environment.ContentRootPath, ".env"),
+    Path.Combine(Directory.GetCurrentDirectory(), ".env"),
+    Path.Combine(Directory.GetCurrentDirectory(), "IndiAsset", ".env")
+};
+
+foreach (var envPath in envCandidates)
+{
+    if (File.Exists(envPath))
+    {
+        foreach (var line in File.ReadAllLines(envPath))
+        {
+            var trimmed = line.Trim();
+            if (string.IsNullOrWhiteSpace(trimmed) || trimmed.StartsWith("#")) continue;
+            var eqIdx = trimmed.IndexOf('=');
+            if (eqIdx > 0)
+            {
+                var key = trimmed.Substring(0, eqIdx).Trim();
+                var val = trimmed.Substring(eqIdx + 1).Trim().Trim('"', '\'');
+                Environment.SetEnvironmentVariable(key, val);
+                builder.Configuration[key] = val;
+
+                if (key.Equals("RAZORPAY_KEY_ID", StringComparison.OrdinalIgnoreCase))
+                {
+                    builder.Configuration["Razorpay:KeyId"] = val;
+                }
+                else if (key.Equals("RAZORPAY_KEY_SECRET", StringComparison.OrdinalIgnoreCase))
+                {
+                    builder.Configuration["Razorpay:KeySecret"] = val;
+                }
+                else if (key.Equals("MONGODB_CONNECTION_STRING", StringComparison.OrdinalIgnoreCase) ||
+                         key.Equals("MONGODB_URI", StringComparison.OrdinalIgnoreCase))
+                {
+                    builder.Configuration["MongoDB:ConnectionString"] = val;
+                }
+                else if (key.Equals("MONGODB_DATABASE_NAME", StringComparison.OrdinalIgnoreCase))
+                {
+                    builder.Configuration["MongoDB:DatabaseName"] = val;
+                }
+            }
+        }
+        break;
+    }
+}
+
+// ======================================================
 // MONGODB CONNECTION
 // ======================================================
 
@@ -121,7 +170,10 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 app.UseStaticFiles();
 
 app.UseRouting();

@@ -271,7 +271,10 @@ namespace IndiAsset.Controllers
                     TotalAmount = b.TotalAmount,
                     Status = b.Status,
                     CreatedAt = b.CreatedAt,
-                    IsOwner = true
+                    IsOwner = true,
+                    IsSecurityDepositPaid = b.IsSecurityDepositPaid || b.SecurityDeposit <= 0 || b.Status == BookingStatus.Active || b.Status == BookingStatus.Approved || b.Status == BookingStatus.Completed,
+                    SecurityDepositPaidAmount = b.SecurityDepositPaidAmount > 0 ? b.SecurityDepositPaidAmount : (b.IsSecurityDepositPaid ? b.SecurityDeposit : 0),
+                    SecurityDepositPaidAt = b.SecurityDepositPaidAt
                 }).ToList();
             }
 
@@ -625,7 +628,10 @@ namespace IndiAsset.Controllers
                     TotalAmount = b.TotalAmount,
                     Status = b.Status,
                     CreatedAt = b.CreatedAt,
-                    IsOwner = true
+                    IsOwner = true,
+                    IsSecurityDepositPaid = b.IsSecurityDepositPaid || b.SecurityDeposit <= 0 || b.Status == BookingStatus.Active || b.Status == BookingStatus.Approved || b.Status == BookingStatus.Completed,
+                    SecurityDepositPaidAmount = b.SecurityDepositPaidAmount > 0 ? b.SecurityDepositPaidAmount : (b.IsSecurityDepositPaid ? b.SecurityDeposit : 0),
+                    SecurityDepositPaidAt = b.SecurityDepositPaidAt
                 }).ToList();
 
             var activeLeases = ownerBookings
@@ -646,7 +652,10 @@ namespace IndiAsset.Controllers
                     TotalAmount = b.TotalAmount,
                     Status = b.Status,
                     CreatedAt = b.CreatedAt,
-                    IsOwner = true
+                    IsOwner = true,
+                    IsSecurityDepositPaid = b.IsSecurityDepositPaid || b.SecurityDeposit <= 0 || b.Status == BookingStatus.Active || b.Status == BookingStatus.Approved || b.Status == BookingStatus.Completed,
+                    SecurityDepositPaidAmount = b.SecurityDepositPaidAmount > 0 ? b.SecurityDepositPaidAmount : (b.IsSecurityDepositPaid ? b.SecurityDeposit : 0),
+                    SecurityDepositPaidAt = b.SecurityDepositPaidAt
                 }).ToList();
 
             var dashboard = new MyAssetsDashboardViewModel

@@ -137,6 +137,7 @@
                 <input type="hidden" asp-for="RazorpayOrderId" id="rzpOrderId" />
                 <input type="hidden" asp-for="RazorpayPaymentId" id="rzpPaymentId" />
                 <input type="hidden" asp-for="RazorpaySignature" id="rzpSignature" />
+                <input type="hidden" asp-for="IsSimulationMode" id="isSimulationMode" />
 
                 <!-- 1. BASELINE ORIGINAL PHOTOS (BEFORE LEASE) -->
                 <div class="card border-0 rounded-4 shadow-sm p-4 mb-4" style="background-color: #1a1d27;">
@@ -258,63 +259,97 @@
                     <div class="row g-3 mb-4">
                         <div class="col-md-4">
                             <div class="payment-highlight-box h-100">
-                                <div class="small text-muted mb-1">Rental Due (@Model.TotalDays days &times; ₹@Model.DailyRent.ToString("N0"))</div>
+                                <div class="small text-muted mb-1">Rental Total (@Model.TotalDays days &times; ₹@Model.DailyRent.ToString("N0"))</div>
                                 <div class="fs-4 fw-bold text-white">₹@Model.TotalRent.ToString("N0")</div>
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="payment-highlight-box h-100">
-                                <div class="small text-muted mb-1">Escrow Security Deposit</div>
-                                <div class="fs-4 fw-bold text-info">₹@Model.SecurityDeposit.ToString("N0")</div>
+                                <div class="small text-muted mb-1">Pre-Paid Escrow Deposit Adjusted</div>
+                                <div class="fs-4 fw-bold text-info">-₹@Model.DepositAdjusted.ToString("N0")</div>
+                                @if (Model.IsDepositAlreadyPaid)
+                                {
+                                    <small class="text-success"><i class="fa-solid fa-shield-check me-1"></i>Paid into escrow prior to lease</small>
+                                }
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="payment-highlight-box h-100" style="background: rgba(34, 197, 94, 0.08); border-color: rgba(34, 197, 94, 0.3);">
-                                <div class="small text-muted mb-1">Total Settlement Payable</div>
+                                <div class="small text-muted mb-1">Net Settlement Payable</div>
                                 <div class="fs-4 fw-bold text-success">₹@Model.AmountToPay.ToString("N0")</div>
+                                @if (Model.ExcessDepositRefund > 0)
+                                {
+                                    <small class="text-warning"><i class="fa-solid fa-arrow-rotate-left me-1"></i>₹@Model.ExcessDepositRefund.ToString("N0") excess refund to be processed</small>
+                                }
+                                else
+                                {
+                                    <small class="text-muted">(Rental ₹@Model.TotalRent.ToString("N0") - Deposit ₹@Model.DepositAdjusted.ToString("N0"))</small>
+                                }
                             </div>
                         </div>
                     </div>
 
-                    <!-- Payment Action Area -->
-                    <div id="paymentPendingBox" class="p-3 rounded-3 mb-2" style="background: rgba(255, 255, 255, 0.03); border: 1px dashed rgba(255, 255, 255, 0.15);">
-                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                    @if (Model.AmountToPay <= 0)
+                    {
+                        <div class="alert alert-success rounded-3 p-3 mb-3 d-flex align-items-center gap-3 border border-success border-opacity-25" style="background: rgba(34, 197, 94, 0.12);">
+                            <i class="fa-solid fa-circle-check fa-2x text-success"></i>
                             <div>
-                                <div class="fw-semibold text-white mb-0">
-                                    <i class="fa-solid fa-clock text-warning me-1"></i> Return Settlement Pending
+                                <div class="fw-bold text-success">Escrow Security Deposit Fully Covers Rental Fee!</div>
+                                <div class="small text-white-70">
+                                    Your upfront escrow security deposit of ₹@Model.DepositAdjusted.ToString("N0") fully covers the total rental charge of ₹@Model.TotalRent.ToString("N0").
+                                    No additional gateway settlement payment is required.
+                                    @if (Model.ExcessDepositRefund > 0)
+                                    {
+                                        <span class="d-block mt-1 text-warning fw-semibold">
+                                            <i class="fa-solid fa-arrow-rotate-left me-1"></i>Remaining excess deposit of ₹@Model.ExcessDepositRefund.ToString("N0") will be returned to your source account.
+                                        </span>
+                                    }
                                 </div>
-                                <small class="text-muted">Pay ₹@Model.AmountToPay.ToString("N0") via Razorpay UPI, Cards, NetBanking or Wallets.</small>
-                            </div>
-                            <div class="d-flex align-items-center gap-2">
-                                <button type="button" class="btn btn-primary rounded-pill px-4 py-2.5 fw-semibold shadow" id="btnRazorpayPay" onclick="openRazorpayCheckout()">
-                                    <i class="fa-solid fa-credit-card me-1"></i> Pay ₹@Model.AmountToPay.ToString("N0") via Razorpay
-                                </button>
-                                <button type="button" class="btn btn-outline-secondary rounded-pill px-3 py-2 small" onclick="simulateTestPayment()" title="Click to test without external gateway">
-                                    <i class="fa-solid fa-vial me-1"></i> Test Pay (Dev)
-                                </button>
                             </div>
                         </div>
-                    </div>
-
-                    <!-- Payment Success Badge (Hidden until paid) -->
-                    <div id="paymentSuccessBox" class="p-3 rounded-3 mb-2 d-none" style="background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.4);">
-                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
-                            <div class="d-flex align-items-center gap-3">
-                                <div class="rounded-circle bg-success text-white d-flex align-items-center justify-content-center" style="width: 44px; height: 44px;">
-                                    <i class="fa-solid fa-check fa-lg"></i>
-                                </div>
+                    }
+                    else
+                    {
+                        <!-- Payment Action Area -->
+                        <div id="paymentPendingBox" class="p-3 rounded-3 mb-2" style="background: rgba(255, 255, 255, 0.03); border: 1px dashed rgba(255, 255, 255, 0.15);">
+                            <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
                                 <div>
-                                    <div class="fw-bold text-success mb-0">Payment Received &amp; Verified via Razorpay!</div>
-                                    <small class="text-white-50">Transaction ID: <span id="confirmedPaymentId" class="font-monospace text-white fw-bold"></span></small>
+                                    <div class="fw-semibold text-white mb-0">
+                                        <i class="fa-solid fa-clock text-warning me-1"></i> Return Settlement Pending
+                                    </div>
+                                    <small class="text-muted">Pay ₹@Model.AmountToPay.ToString("N0") (Rent ₹@Model.TotalRent.ToString("N0") minus Deposit ₹@Model.DepositAdjusted.ToString("N0")) via Razorpay.</small>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <button type="button" class="btn btn-primary rounded-pill px-4 py-2.5 fw-semibold shadow" id="btnRazorpayPay" onclick="openRazorpayCheckout()">
+                                        <i class="fa-solid fa-credit-card me-1"></i> Pay ₹@Model.AmountToPay.ToString("N0") via Razorpay
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary rounded-pill px-3 py-2 small" onclick="simulateTestPayment()" title="Click to test without external gateway">
+                                        <i class="fa-solid fa-vial me-1"></i> Test Pay (Dev)
+                                    </button>
                                 </div>
                             </div>
-                            <span class="badge bg-success text-white rounded-pill px-3 py-2">
-                                <i class="fa-solid fa-lock-check me-1"></i> Ready for Submission
-                            </span>
                         </div>
-                    </div>
 
-                    <div class="text-danger small mt-2" id="paymentErrorText"></div>
+                        <!-- Payment Success Badge (Hidden until paid) -->
+                        <div id="paymentSuccessBox" class="p-3 rounded-3 mb-2 d-none" style="background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.4);">
+                            <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="rounded-circle bg-success text-white d-flex align-items-center justify-content-center" style="width: 44px; height: 44px;">
+                                        <i class="fa-solid fa-check fa-lg"></i>
+                                    </div>
+                                    <div>
+                                        <div class="fw-bold text-success mb-0">Payment Received &amp; Verified via Razorpay!</div>
+                                        <small class="text-white-50">Transaction ID: <span id="confirmedPaymentId" class="font-monospace text-white fw-bold"></span></small>
+                                    </div>
+                                </div>
+                                <span class="badge bg-success text-white rounded-pill px-3 py-2">
+                                    <i class="fa-solid fa-lock-check me-1"></i> Ready for Submission
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="text-danger small mt-2" id="paymentErrorText"></div>
+                    }
                 </div>
 
                 <!-- SUBMIT BUTTON -->
@@ -323,11 +358,137 @@
                         Cancel
                     </a>
                     <button type="button" class="btn btn-primary rounded-pill px-5 py-2.5 fw-semibold shadow-sm fs-6" id="btnSubmitReturn" onclick="handleReturnFormSubmit()">
-                        <i class="fa-solid fa-code-compare me-1"></i> Pay &amp; Submit Asset Return
+                        <i class="fa-solid fa-code-compare me-1"></i> @(Model.AmountToPay <= 0 ? "Submit Asset Return & Comparison Report" : "Pay & Submit Asset Return")
                     </button>
                 </div>
             </form>
 
+        </div>
+    </div>
+<!-- Razorpay Sandbox Simulator Modal -->
+<div class="modal fade" id="razorpaySimulatorModal" tabindex="-1" aria-labelledby="razorpaySimulatorModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4 shadow-lg overflow-hidden" style="background: #111420; color: #f1f5f9; border: 1px solid rgba(59, 130, 246, 0.3) !important;">
+            <!-- Modal Header with Razorpay Branding -->
+            <div class="modal-header border-bottom border-light border-opacity-10 py-3 px-4" style="background: linear-gradient(135deg, #0c2340 0%, #172554 100%);">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-3 bg-primary bg-opacity-25 border border-primary border-opacity-50 p-2 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                        <i class="fa-brands fa-razorpay text-primary fa-lg"></i>
+                    </div>
+                    <div>
+                        <div class="d-flex align-items-center gap-2">
+                            <h6 class="modal-title fw-bold text-white mb-0" id="razorpaySimulatorModalLabel">Razorpay Gateway</h6>
+                            <span class="badge bg-warning bg-opacity-25 text-warning border border-warning border-opacity-25 rounded-pill px-2 py-0.5" style="font-size: 0.7rem;">
+                                <i class="fa-solid fa-flask me-1"></i> TEST SIMULATOR
+                            </span>
+                        </div>
+                        <small class="text-white-50">IndiAsset Equipment Settlement &bull; Secure Checkout</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body p-4">
+                <!-- Order Summary Bar -->
+                <div class="d-flex justify-content-between align-items-center p-3 rounded-3 mb-3" style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08);">
+                    <div>
+                        <small class="text-muted d-block">Settlement for</small>
+                        <span class="fw-semibold text-white">@Model.AssetTitle</span>
+                    </div>
+                    <div class="text-end">
+                        <small class="text-muted d-block">Amount Due</small>
+                        <span class="fs-4 fw-bold text-success">₹@Model.AmountToPay.ToString("N0")</span>
+                    </div>
+                </div>
+
+                <!-- Simulation Mode Notice -->
+                <div class="alert alert-info border-0 rounded-3 p-2.5 mb-3 d-flex align-items-start gap-2" style="background: rgba(59, 130, 246, 0.12); color: #93c5fd; font-size: 0.825rem;">
+                    <i class="fa-solid fa-circle-info mt-1"></i>
+                    <div>
+                        <strong>Developer Simulation Mode:</strong> Simulated gateway active for seamless local testing. Click any option below to simulate verified authorization.
+                    </div>
+                </div>
+
+                <!-- Payment Method Tabs -->
+                <ul class="nav nav-pills nav-fill mb-3 gap-2" id="simPaymentTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active rounded-pill py-2 small fw-semibold" id="sim-upi-tab" data-bs-toggle="pill" data-bs-target="#sim-upi" type="button" role="tab">
+                            <i class="fa-solid fa-qrcode me-1"></i> UPI / QR
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link rounded-pill py-2 small fw-semibold" id="sim-card-tab" data-bs-toggle="pill" data-bs-target="#sim-card" type="button" role="tab">
+                            <i class="fa-solid fa-credit-card me-1"></i> Cards
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link rounded-pill py-2 small fw-semibold" id="sim-net-tab" data-bs-toggle="pill" data-bs-target="#sim-net" type="button" role="tab">
+                            <i class="fa-solid fa-building-columns me-1"></i> NetBanking
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content mb-4" id="simPaymentContent">
+                    <!-- UPI Tab -->
+                    <div class="tab-pane fade show active" id="sim-upi" role="tabpanel">
+                        <div class="p-3 rounded-3" style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.06);">
+                            <label class="form-label small text-muted mb-1">Simulated Virtual Payment Address (VPA)</label>
+                            <div class="input-group input-group-sm mb-2">
+                                <span class="input-group-text"><i class="fa-solid fa-at text-primary"></i></span>
+                                <input type="text" class="form-control" id="simUpiId" value="@(User.Identity?.Name?.Split('@')[0] ?? "renter")@@razorpay" readonly />
+                            </div>
+                            <div class="d-flex gap-2">
+                                <span class="badge bg-secondary bg-opacity-25 text-white-50 small">Google Pay</span>
+                                <span class="badge bg-secondary bg-opacity-25 text-white-50 small">PhonePe</span>
+                                <span class="badge bg-secondary bg-opacity-25 text-white-50 small">Paytm</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cards Tab -->
+                    <div class="tab-pane fade" id="sim-card" role="tabpanel">
+                        <div class="p-3 rounded-3" style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.06);">
+                            <label class="form-label small text-muted mb-1">Razorpay Test Card</label>
+                            <div class="input-group input-group-sm mb-2">
+                                <span class="input-group-text"><i class="fa-solid fa-credit-card text-primary"></i></span>
+                                <input type="text" class="form-control" value="4012 &bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull; 1881 (Visa Test)" readonly />
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <input type="text" class="form-control form-control-sm" value="Expires: 12/29" readonly />
+                                </div>
+                                <div class="col-6">
+                                    <input type="text" class="form-control form-control-sm" value="CVV: 123" readonly />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- NetBanking Tab -->
+                    <div class="tab-pane fade" id="sim-net" role="tabpanel">
+                        <div class="p-3 rounded-3" style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.06);">
+                            <label class="form-label small text-muted mb-1">Select Simulated Bank</label>
+                            <select class="form-select form-select-sm" id="simBankSelect">
+                                <option selected>HDFC Bank (Test Simulator)</option>
+                                <option>ICICI Bank (Test Simulator)</option>
+                                <option>State Bank of India (Test Simulator)</option>
+                                <option>Axis Bank (Test Simulator)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Simulation Action Button -->
+                <button type="button" class="btn btn-primary w-100 py-2.5 rounded-pill fw-semibold shadow-sm" id="btnExecuteSimulatedPay" onclick="executeSimulatedRazorpayPayment()">
+                    <i class="fa-solid fa-shield-check me-1"></i> Authorize &amp; Pay ₹@Model.AmountToPay.ToString("N0")
+                </button>
+
+                <div class="text-center mt-3">
+                    <small class="text-white-50" style="font-size: 0.75rem;">
+                        <i class="fa-solid fa-lock me-1"></i> 256-Bit SSL Encrypted Razorpay Handshake Simulation
+                    </small>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -336,7 +497,7 @@
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 
 <script>
-    let isPaymentDone = false;
+    let isPaymentDone = @(Model.AmountToPay <= 0 ? "true" : "false");
 
     function setRating(val) {
         document.getElementById('ratingInput').value = val;
@@ -385,6 +546,25 @@
     function openRazorpayCheckout() {
         const keyId = document.getElementById('rzpKeyId').value;
         const orderId = document.getElementById('rzpOrderId').value;
+        const isSimMode = document.getElementById('isSimulationMode')?.value === 'True' ||
+                          document.getElementById('isSimulationMode')?.value === 'true' ||
+                          !orderId ||
+                          orderId.startsWith('order_sim_') ||
+                          orderId.startsWith('order_demo_') ||
+                          orderId.startsWith('order_test_') ||
+                          !keyId ||
+                          keyId.includes('1DP5mmOl') ||
+                          keyId.includes('DemoKey') ||
+                          keyId.includes('YourKey') ||
+                          keyId.includes('IndiAsset');
+
+        // If in simulation mode or keys are unconfigured, open the simulator modal directly
+        // (passing a dummy order_id to checkout.razorpay.com will cause Razorpay's modal to fail with "Something went wrong")
+        if (isSimMode) {
+            openRazorpaySimulatorModal();
+            return;
+        }
+
         const amount = parseFloat(document.getElementById('rzpAmountToPay').value) || 100;
         const amountPaise = Math.round(amount * 100);
 
@@ -417,22 +597,56 @@
         try {
             const rzp = new Razorpay(options);
             rzp.on('payment.failed', function (response) {
-                document.getElementById('paymentErrorText').innerText =
-                    "Payment Failed: " + (response.error.description || response.error.reason || "Payment declined.");
+                const desc = response.error ? (response.error.description || response.error.reason) : "Payment declined.";
+                document.getElementById('paymentErrorText').innerHTML =
+                    `<div class="alert alert-warning border-0 rounded-3 p-3 mt-2 shadow-sm">
+                        <div class="fw-semibold text-warning mb-1"><i class="fa-solid fa-triangle-exclamation me-1"></i> Gateway Error: ${desc}</div>
+                        <div class="small text-white-50 mb-2">The Razorpay gateway rejected this payment (e.g. test credentials or declined bank). You can complete this transaction using the Dev Simulator.</div>
+                        <button type="button" class="btn btn-sm btn-outline-warning rounded-pill px-3" onclick="openRazorpaySimulatorModal()">
+                            <i class="fa-solid fa-vial me-1"></i> Complete via Simulator
+                        </button>
+                    </div>`;
             });
             rzp.open();
         } catch (e) {
-            console.warn("Razorpay standard modal popup failed (e.g. invalid test key), switching to simulation:", e);
-            simulateTestPayment();
+            console.warn("Razorpay standard modal popup failed:", e);
+            openRazorpaySimulatorModal();
         }
     }
 
-    function simulateTestPayment() {
-        const simulatedPaymentId = "pay_test_" + Math.random().toString(36).substring(2, 12);
-        const orderId = document.getElementById('rzpOrderId').value || ("order_test_" + Math.random().toString(36).substring(2, 10));
-        const signature = "sig_simulated_valid_" + Math.random().toString(36).substring(2, 14);
+    function openRazorpaySimulatorModal() {
+        const modalEl = document.getElementById('razorpaySimulatorModal');
+        const modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modalInstance.show();
+    }
 
-        markPaymentSuccess(simulatedPaymentId, orderId, signature);
+    function executeSimulatedRazorpayPayment() {
+        const btn = document.getElementById('btnExecuteSimulatedPay');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Authorizing with Razorpay...';
+
+        setTimeout(function() {
+            const simulatedPaymentId = "pay_sim_" + Math.random().toString(36).substring(2, 12);
+            const currentOrderId = document.getElementById('rzpOrderId').value;
+            const orderId = (currentOrderId && !currentOrderId.startsWith('order_test_')) 
+                ? currentOrderId 
+                : ("order_sim_" + Math.random().toString(36).substring(2, 10));
+            const signature = "sig_simulated_" + Math.random().toString(36).substring(2, 14);
+
+            // Close simulator modal
+            const modalEl = document.getElementById('razorpaySimulatorModal');
+            const modalInstance = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+            modalInstance.hide();
+
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-shield-check me-1"></i> Authorize &amp; Pay ₹@Model.AmountToPay.ToString("N0")';
+
+            markPaymentSuccess(simulatedPaymentId, orderId, signature);
+        }, 600);
+    }
+
+    function simulateTestPayment() {
+        openRazorpaySimulatorModal();
     }
 
     function markPaymentSuccess(paymentId, orderId, signature) {
@@ -443,7 +657,7 @@
         document.getElementById('confirmedPaymentId').innerText = paymentId;
         document.getElementById('paymentPendingBox').classList.add('d-none');
         document.getElementById('paymentSuccessBox').classList.remove('d-none');
-        document.getElementById('paymentErrorText').innerText = '';
+        document.getElementById('paymentErrorText').innerHTML = '';
 
         const submitBtn = document.getElementById('btnSubmitReturn');
         submitBtn.innerHTML = '<i class="fa-solid fa-check me-1"></i> Submit Asset Return &amp; Comparison Report';
@@ -464,7 +678,8 @@
             return;
         }
 
-        if (!paymentId || !isPaymentDone) {
+        const amountToPay = parseFloat(document.getElementById('rzpAmountToPay')?.value || '0');
+        if (amountToPay > 0 && (!paymentId || !isPaymentDone)) {
             document.getElementById('paymentErrorText').innerText =
                 'Payment via Razorpay is required to complete return of this asset. Please click the payment button below.';
             openRazorpayCheckout();

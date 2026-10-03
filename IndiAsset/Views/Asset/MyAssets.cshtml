@@ -157,16 +157,43 @@
                                 </td>
                                 <td class="border-0">
                                     <div class="fw-bold text-success">₹@item.TotalRent.ToString("N0") <span class="small text-muted fw-normal">(Rent)</span></div>
-                                    <div class="small text-muted">Deposit: ₹@item.SecurityDeposit.ToString("N0")</div>
+                                    @if (item.SecurityDeposit > 0)
+                                    {
+                                        if (item.IsSecurityDepositPaid)
+                                        {
+                                            <div class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25 mt-1">
+                                                <i class="fa-solid fa-shield-check me-1"></i>Deposit Paid (₹@item.SecurityDeposit.ToString("N0"))
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="badge bg-warning bg-opacity-25 text-warning border border-warning border-opacity-25 mt-1">
+                                                <i class="fa-solid fa-clock me-1"></i>Awaiting Deposit (₹@item.SecurityDeposit.ToString("N0"))
+                                            </div>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <div class="small text-muted">No Deposit</div>
+                                    }
                                 </td>
                                 <td class="text-end pe-4 border-0">
-                                    <div class="d-inline-flex gap-2">
-                                        <form method="post" asp-controller="Booking" asp-action="Approve" asp-route-id="@item.BookingId" class="d-inline">
-                                            @Html.AntiForgeryToken()
-                                            <button type="submit" class="btn btn-success btn-sm rounded-pill px-3 py-1.5 fw-semibold shadow-sm">
-                                                <i class="fa-solid fa-check me-1"></i> Accept Request
+                                    <div class="d-inline-flex gap-2 align-items-center">
+                                        @if (item.IsSecurityDepositPaid || item.SecurityDeposit <= 0)
+                                        {
+                                            <form method="post" asp-controller="Booking" asp-action="Approve" asp-route-id="@item.BookingId" class="d-inline">
+                                                @Html.AntiForgeryToken()
+                                                <button type="submit" class="btn btn-success btn-sm rounded-pill px-3 py-1.5 fw-semibold shadow-sm">
+                                                    <i class="fa-solid fa-check me-1"></i> Accept Request
+                                                </button>
+                                            </form>
+                                        }
+                                        else
+                                        {
+                                            <button class="btn btn-secondary btn-sm rounded-pill px-3 py-1.5 fw-semibold" disabled title="Renter must pay the escrow security deposit before this request can be approved.">
+                                                <i class="fa-solid fa-lock me-1"></i> Awaiting Deposit
                                             </button>
-                                        </form>
+                                        }
                                         <form method="post" asp-controller="Booking" asp-action="Reject" asp-route-id="@item.BookingId" class="d-inline" onsubmit="return confirm('Decline this lease request?');">
                                             @Html.AntiForgeryToken()
                                             <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-2.5 py-1.5" title="Decline Request">

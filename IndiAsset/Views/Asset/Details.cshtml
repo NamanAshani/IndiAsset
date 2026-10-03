@@ -187,17 +187,43 @@
                                         </div>
                                         <div class="text-muted small mb-2">
                                             @req.StartDate.ToString("dd MMM") – @req.EndDate.ToString("dd MMM yyyy") • <span class="text-success fw-bold">₹@req.TotalRent.ToString("N0")</span>
+                                            @if (req.SecurityDeposit > 0)
+                                            {
+                                                <div class="mt-1">
+                                                    @if (req.IsSecurityDepositPaid)
+                                                    {
+                                                        <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25">
+                                                            <i class="fa-solid fa-shield-check me-1"></i>Deposit Paid: ₹@req.SecurityDeposit.ToString("N0")
+                                                        </span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-warning bg-opacity-25 text-warning border border-warning border-opacity-25">
+                                                            <i class="fa-solid fa-clock me-1"></i>Awaiting Deposit: ₹@req.SecurityDeposit.ToString("N0")
+                                                        </span>
+                                                    }
+                                                </div>
+                                            }
                                         </div>
-                                        <div class="d-flex gap-1.5">
-                                            <form method="post" asp-controller="Booking" asp-action="Approve" asp-route-id="@req.BookingId" class="d-inline flex-grow-1">
-                                                @Html.AntiForgeryToken()
-                                                <button type="submit" class="btn btn-success btn-sm w-100 py-1 fw-semibold">
-                                                    <i class="fa-solid fa-check me-1"></i> Approve
+                                        <div class="d-flex gap-1.5 align-items-center">
+                                            @if (req.IsSecurityDepositPaid || req.SecurityDeposit <= 0)
+                                            {
+                                                <form method="post" asp-controller="Booking" asp-action="Approve" asp-route-id="@req.BookingId" class="d-inline flex-grow-1">
+                                                    @Html.AntiForgeryToken()
+                                                    <button type="submit" class="btn btn-success btn-sm w-100 py-1 fw-semibold">
+                                                        <i class="fa-solid fa-check me-1"></i> Approve
+                                                    </button>
+                                                </form>
+                                            }
+                                            else
+                                            {
+                                                <button class="btn btn-secondary btn-sm flex-grow-1 py-1 fw-semibold" disabled title="Renter must pay the security deposit into escrow before you can approve this lease.">
+                                                    <i class="fa-solid fa-lock me-1"></i> Awaiting Deposit
                                                 </button>
-                                            </form>
+                                            }
                                             <form method="post" asp-controller="Booking" asp-action="Reject" asp-route-id="@req.BookingId" class="d-inline" onsubmit="return confirm('Decline this request?');">
                                                 @Html.AntiForgeryToken()
-                                                <button type="submit" class="btn btn-outline-danger btn-sm py-1 px-2">
+                                                <button type="submit" class="btn btn-outline-danger btn-sm py-1 px-2" title="Decline Request">
                                                     <i class="fa-solid fa-xmark"></i>
                                                 </button>
                                             </form>
@@ -281,23 +307,34 @@
                                     <span class="fw-semibold" style="color:#e2e8f0;">₹@Model.Asset.DailyRent.ToString("N0") / day</span>
                                 </div>
                                 <div class="d-flex justify-content-between small text-muted mb-1">
-                                    <span>Rent Subtotal</span>
+                                    <span>Rental Total</span>
                                     <span id="calcRent" class="fw-semibold" style="color:#e2e8f0;">₹@((3 * Model.Asset.DailyRent).ToString("N0"))</span>
                                 </div>
                                 <div class="d-flex justify-content-between small text-muted mb-2">
                                     <span>Refundable Escrow Deposit</span>
-                                    <span id="calcDeposit" class="fw-semibold" style="color:#e2e8f0;">₹@Model.Asset.SecurityDeposit.ToString("N0")</span>
+                                    <span id="calcDeposit" class="fw-semibold text-warning">₹@Model.Asset.SecurityDeposit.ToString("N0")</span>
                                 </div>
-                                <div class="d-flex justify-content-between border-top pt-2 fw-bold" style="color:#f1f5f9;">
-                                    <span>Total Payable</span>
-                                    <span id="calcTotal" class="text-primary fs-5">₹@(((3 * Model.Asset.DailyRent) + Model.Asset.SecurityDeposit).ToString("N0"))</span>
+                                <div class="p-2.5 rounded-3 mb-2" style="background: rgba(245, 158, 11, 0.1); border: 1px dashed rgba(245, 158, 11, 0.3);">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <span class="fw-bold text-warning small d-block">
+                                                <i class="fa-solid fa-shield-halved me-1"></i> Due Upfront Before Approval:
+                                            </span>
+                                            <span class="small text-muted" style="font-size: 0.75rem;">Held securely in escrow until return</span>
+                                        </div>
+                                        <span id="calcDepositDue" class="fs-5 fw-bold text-warning">₹@Model.Asset.SecurityDeposit.ToString("N0")</span>
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-between border-top border-secondary border-opacity-25 pt-2 small" style="color:#cbd5e1;">
+                                    <span>Settlement on Return (Rent - Deposit):</span>
+                                    <span id="calcSettlement" class="fw-bold text-success">₹@Math.Max(0, (3 * Model.Asset.DailyRent) - Model.Asset.SecurityDeposit).ToString("N0")</span>
                                 </div>
                             </div>
 
                             @if (User.Identity?.IsAuthenticated == true)
                             {
                                 <button type="submit" class="btn btn-primary w-100 rounded-3 py-2.5 fw-semibold shadow-sm fs-6">
-                                    <i class="fa-solid fa-paper-plane me-1"></i> Request to Lease for <span id="btnDurationText">3 Days</span>
+                                    <i class="fa-solid fa-shield-check me-1"></i> Pay Deposit &amp; Request Lease (<span id="btnDurationText">3 Days</span>)
                                 </button>
                             }
                             else
@@ -407,7 +444,7 @@
     function recalculateCost() {
         const days = getDays();
         const rentSubtotal = days * dailyRent;
-        const grandTotal = rentSubtotal + securityDeposit;
+        const settlementOnReturn = Math.max(0, rentSubtotal - securityDeposit);
 
         const daysBadge = document.getElementById('daysBadge');
         if (daysBadge) daysBadge.innerText = days + (days === 1 ? ' Day' : ' Days');
@@ -421,8 +458,14 @@
         const calcRent = document.getElementById('calcRent');
         if (calcRent) calcRent.innerText = '₹' + rentSubtotal.toLocaleString('en-IN');
 
-        const calcTotal = document.getElementById('calcTotal');
-        if (calcTotal) calcTotal.innerText = '₹' + grandTotal.toLocaleString('en-IN');
+        const calcDeposit = document.getElementById('calcDeposit');
+        if (calcDeposit) calcDeposit.innerText = '₹' + securityDeposit.toLocaleString('en-IN');
+
+        const calcDepositDue = document.getElementById('calcDepositDue');
+        if (calcDepositDue) calcDepositDue.innerText = '₹' + securityDeposit.toLocaleString('en-IN');
+
+        const calcSettlement = document.getElementById('calcSettlement');
+        if (calcSettlement) calcSettlement.innerText = '₹' + settlementOnReturn.toLocaleString('en-IN');
     }
 
     function switchMainImage(url, thumbElement) {

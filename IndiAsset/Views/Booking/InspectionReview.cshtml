@@ -94,10 +94,10 @@
                     <div class="col-md-4 text-md-end">
                         <span class="small text-muted d-block mb-1">Security Deposit Status</span>
                         <div class="fs-4 fw-bold text-primary mb-1">
-                            ₹@Model.RecommendedRefundAmount.ToString("N0") Full Refund
+                            ₹@Model.RecommendedRefundAmount.ToString("N0") settled
                         </div>
                         <span class="badge bg-success text-white rounded-pill px-3 py-1.5 fw-semibold small">
-                            <i class="fa-solid fa-lock-open me-1"></i> Escrow Deposit Cleared
+                            <i class="fa-solid fa-check me-1"></i> Escrow Deposit Settled
                         </span>
                     </div>
                 </div>
@@ -245,7 +245,7 @@
                     <div class="col-md-4">
                         <div class="metric-badge">
                             <span class="text-muted small d-block mb-1">Escrow Settlement</span>
-                            <span class="fw-semibold text-primary">₹@(Model.RecommendedRefundAmount.ToString("N0")) Refund Approved</span>
+                            <span class="fw-semibold text-primary">₹@(Model.RecommendedRefundAmount.ToString("N0")) settled</span>
                         </div>
                     </div>
                 </div>

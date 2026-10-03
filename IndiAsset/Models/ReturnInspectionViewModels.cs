@@ -26,12 +26,18 @@ namespace IndiAsset.Models
         public decimal TotalAmount { get; set; }
         public decimal AmountToPay { get; set; }
 
+        // Escrow adjustment fields
+        public decimal DepositAdjusted { get; set; }
+        public decimal ExcessDepositRefund { get; set; }
+        public bool IsDepositAlreadyPaid { get; set; }
+
         // Razorpay payment fields
         public string? RazorpayKeyId { get; set; }
         public string? RazorpayOrderId { get; set; }
         public string? RazorpayPaymentId { get; set; }
         public string? RazorpaySignature { get; set; }
         public bool PaymentCompleted { get; set; }
+        public bool IsSimulationMode { get; set; }
 
         // Photos uploaded after asset usage
         [Required(ErrorMessage = "Please upload at least one post-use photo of the asset for comparison")]
@@ -73,5 +79,32 @@ namespace IndiAsset.Models
         public string FunctionalStatus { get; set; } = "Operational & Complete";
         public bool FullDepositRefundRecommended { get; set; } = true;
         public decimal RecommendedRefundAmount { get; set; }
+    }
+
+    public class PayDepositViewModel
+    {
+        public string BookingId { get; set; } = string.Empty;
+        public string AssetId { get; set; } = string.Empty;
+        public string AssetTitle { get; set; } = string.Empty;
+        public string AssetCategory { get; set; } = string.Empty;
+        public string? PrimaryImageUrl { get; set; }
+
+        public string OwnerName { get; set; } = string.Empty;
+        public string RenterName { get; set; } = string.Empty;
+
+        public DateTime StartDate { get; set; }
+        public DateTime EndDate { get; set; }
+        public int TotalDays { get; set; }
+        public decimal DailyRent { get; set; }
+        public decimal TotalRent { get; set; }
+        public decimal SecurityDeposit { get; set; }
+        public decimal TotalAmount { get; set; }
+
+        // Razorpay payment fields for deposit
+        public string? RazorpayKeyId { get; set; }
+        public string? RazorpayOrderId { get; set; }
+        public string? RazorpayPaymentId { get; set; }
+        public string? RazorpaySignature { get; set; }
+        public bool IsSimulationMode { get; set; }
     }
 }
