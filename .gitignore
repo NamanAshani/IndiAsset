@@ -482,6 +482,15 @@ $RECYCLE.BIN/
 *.swp
 
 # Local configuration and uploaded files
+IndiAsset/Properties/serviceDependencies.json
 IndiAsset/Properties/serviceDependencies.local.json
 IndiAsset/appsettings.Development.json
+IndiAsset/appsettings.Local.json
 IndiAsset/wwwroot/uploads/
+
+# Vendor client libraries (loaded via CDN)
+IndiAsset/wwwroot/lib/
+
+# Temporary and scratch scripts
+*.py
+
