@@ -33,6 +33,8 @@ namespace IndiAsset.Services
             _database = client.GetDatabase(databaseName);
         }
 
+        public IMongoDatabase Database => _database;
+
         public IMongoCollection<Asset> Assets =>
             _database.GetCollection<Asset>("Assets");
 

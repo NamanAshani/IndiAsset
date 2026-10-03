@@ -23,6 +23,15 @@ namespace IndiAsset.Models
         public decimal DailyRent { get; set; }
         public decimal TotalRent { get; set; }
         public decimal SecurityDeposit { get; set; }
+        public decimal TotalAmount { get; set; }
+        public decimal AmountToPay { get; set; }
+
+        // Razorpay payment fields
+        public string? RazorpayKeyId { get; set; }
+        public string? RazorpayOrderId { get; set; }
+        public string? RazorpayPaymentId { get; set; }
+        public string? RazorpaySignature { get; set; }
+        public bool PaymentCompleted { get; set; }
 
         // Photos uploaded after asset usage
         [Required(ErrorMessage = "Please upload at least one post-use photo of the asset for comparison")]
@@ -49,6 +58,7 @@ namespace IndiAsset.Models
         public Asset Asset { get; set; } = new();
         public LeaseReturn LeaseReturn { get; set; } = new();
         public Review? Review { get; set; }
+        public Payment? Payment { get; set; }
 
         public string OwnerName { get; set; } = string.Empty;
         public string RenterName { get; set; } = string.Empty;

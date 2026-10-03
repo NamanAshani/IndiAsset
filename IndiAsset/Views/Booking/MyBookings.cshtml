@@ -1,4 +1,4 @@
-﻿@model IndiAsset.Models.MyBookingsViewModel
+@model IndiAsset.Models.MyBookingsViewModel
 @using IndiAsset.Models
 @{
     ViewData["Title"] = "My Leases & Bookings — IndiAsset";
@@ -182,7 +182,7 @@
                                         @if (item.Status == BookingStatus.Active || item.Status == BookingStatus.Approved)
                                         {
                                             <a asp-controller="Booking" asp-action="ReturnAsset" asp-route-bookingId="@item.BookingId" class="btn btn-warning btn-sm rounded-pill px-3 py-2 fw-semibold text-dark">
-                                                <i class="fa-solid fa-camera me-1"></i> Return &amp; Upload Photos
+                                                <i class="fa-solid fa-credit-card me-1"></i> Pay &amp; Return Asset
                                             </a>
                                         }
                                         @if (item.Status == BookingStatus.Completed || item.HasReturnInspection)

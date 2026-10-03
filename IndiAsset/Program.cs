@@ -23,10 +23,12 @@ var mongoDatabaseName =
     ?? throw new InvalidOperationException(
         "MongoDB DatabaseName is missing.");
 
-// Register MongoDbService
+// Register MongoDbService & GridFsService
 builder.Services.AddSingleton<MongoDbService>();
+builder.Services.AddSingleton<GridFsService>();
 builder.Services.AddSingleton<PresenceTracker>();
 builder.Services.AddScoped<AssetAvailabilityService>();
+builder.Services.AddScoped<IRazorpayService, RazorpayService>();
 builder.Services.AddHostedService<MongoChangeStreamService>();
 
 // Register EmailSender
@@ -83,7 +85,7 @@ builder.Services.AddSignalR();
 
 var app = builder.Build();
 
-// Seed Roles
+// Seed Roles and Migrate Local Uploads to GridFS
 using (var scope = app.Services.CreateScope())
 {
     try
@@ -94,6 +96,18 @@ using (var scope = app.Services.CreateScope())
     {
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
         logger.LogWarning(ex, "Could not seed roles on startup: {Message}", ex.Message);
+    }
+
+    try
+    {
+        var gridFs = scope.ServiceProvider.GetRequiredService<GridFsService>();
+        var env = scope.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
+        await gridFs.MigrateExistingLocalUploadsAsync(env);
+    }
+    catch (Exception ex)
+    {
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogWarning(ex, "Could not run GridFS upload migration on startup: {Message}", ex.Message);
     }
 }
 

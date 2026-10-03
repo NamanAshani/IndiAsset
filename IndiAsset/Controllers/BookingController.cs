@@ -11,17 +11,23 @@ namespace IndiAsset.Controllers
     public class BookingController : Controller
     {
         private readonly MongoDbService _mongoDbService;
+        private readonly GridFsService _gridFsService;
+        private readonly IRazorpayService _razorpayService;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly AssetAvailabilityService _availabilityService;
         private readonly IWebHostEnvironment _webHostEnvironment;
 
         public BookingController(
             MongoDbService mongoDbService,
+            GridFsService gridFsService,
+            IRazorpayService razorpayService,
             UserManager<ApplicationUser> userManager,
             AssetAvailabilityService availabilityService,
             IWebHostEnvironment webHostEnvironment)
         {
             _mongoDbService = mongoDbService;
+            _gridFsService = gridFsService;
+            _razorpayService = razorpayService;
             _userManager = userManager;
             _availabilityService = availabilityService;
             _webHostEnvironment = webHostEnvironment;
@@ -421,6 +427,21 @@ namespace IndiAsset.Controllers
                 baselineImages.Add(booking.AssetImageUrl);
             }
 
+            var amountToPay = booking.TotalAmount > 0
+                ? booking.TotalAmount
+                : (booking.TotalRent + booking.SecurityDeposit);
+
+            if (amountToPay <= 0)
+            {
+                amountToPay = booking.DailyRent > 0 ? booking.DailyRent : 100;
+            }
+
+            var receiptId = $"ret_{booking.Id}";
+            var (orderSuccess, orderId, orderError) = await _razorpayService.CreateOrderAsync(
+                amountToPay,
+                receiptId,
+                $"Return settlement for {booking.AssetTitle ?? "Equipment"}");
+
             var model = new ReturnAssetUploadViewModel
             {
                 BookingId = booking.Id ?? string.Empty,
@@ -437,6 +458,10 @@ namespace IndiAsset.Controllers
                 DailyRent = booking.DailyRent,
                 TotalRent = booking.TotalRent,
                 SecurityDeposit = booking.SecurityDeposit,
+                TotalAmount = booking.TotalAmount > 0 ? booking.TotalAmount : amountToPay,
+                AmountToPay = amountToPay,
+                RazorpayKeyId = _razorpayService.GetKeyId(),
+                RazorpayOrderId = orderId,
                 Rating = 5
             };
 
@@ -461,14 +486,50 @@ namespace IndiAsset.Controllers
                 .Find(a => a.Id == booking.AssetId)
                 .FirstOrDefaultAsync();
 
-            if (model.ReturnPhotos == null || !model.ReturnPhotos.Any())
+            var baselineImages = asset?.Images?.Select(i => i.Url).ToList() ?? new List<string>();
+            if (!baselineImages.Any() && !string.IsNullOrEmpty(booking.AssetImageUrl))
             {
-                ModelState.AddModelError("ReturnPhotos", "Please upload at least one post-use photo of the asset.");
-                model.BaselineOriginalImageUrls = asset?.Images?.Select(i => i.Url).ToList() ?? new List<string>();
+                baselineImages.Add(booking.AssetImageUrl);
+            }
+
+            // 1. Validate Razorpay payment
+            if (string.IsNullOrWhiteSpace(model.RazorpayPaymentId))
+            {
+                ModelState.AddModelError("RazorpayPaymentId", "Payment via Razorpay is required to complete returning this asset.");
+                model.BaselineOriginalImageUrls = baselineImages;
+                model.RazorpayKeyId = _razorpayService.GetKeyId();
+                if (string.IsNullOrWhiteSpace(model.RazorpayOrderId))
+                {
+                    var payable = booking.TotalAmount > 0 ? booking.TotalAmount : (booking.TotalRent + booking.SecurityDeposit);
+                    var (_, oId, _) = await _razorpayService.CreateOrderAsync(payable, $"ret_{booking.Id}", $"Return settlement for {booking.AssetTitle}");
+                    model.RazorpayOrderId = oId;
+                }
                 return View(model);
             }
 
-            // Save uploaded return photos directly into MongoDB database
+            var isSignatureValid = _razorpayService.VerifyPaymentSignature(
+                model.RazorpayOrderId ?? string.Empty,
+                model.RazorpayPaymentId,
+                model.RazorpaySignature ?? string.Empty);
+
+            if (!isSignatureValid)
+            {
+                ModelState.AddModelError("RazorpayPaymentId", "Payment verification failed. Please try completing payment again.");
+                model.BaselineOriginalImageUrls = baselineImages;
+                model.RazorpayKeyId = _razorpayService.GetKeyId();
+                return View(model);
+            }
+
+            // 2. Validate Photos
+            if (model.ReturnPhotos == null || !model.ReturnPhotos.Any())
+            {
+                ModelState.AddModelError("ReturnPhotos", "Please upload at least one post-use photo of the asset.");
+                model.BaselineOriginalImageUrls = baselineImages;
+                model.RazorpayKeyId = _razorpayService.GetKeyId();
+                return View(model);
+            }
+
+            // 3. Save uploaded return photos directly into MongoDB Atlas GridFS
             var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp", ".avif", ".gif" };
             var savedReturnImageUrls = new List<string>();
 
@@ -479,18 +540,9 @@ namespace IndiAsset.Controllers
                     var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
                     if (allowedExtensions.Contains(ext))
                     {
-                        using var ms = new MemoryStream();
-                        await file.CopyToAsync(ms);
-                        var appImage = new AppImage
-                        {
-                            FileName = Path.GetFileName(file.FileName),
-                            ContentType = !string.IsNullOrEmpty(file.ContentType) ? file.ContentType : "image/jpeg",
-                            Data = ms.ToArray(),
-                            Size = file.Length,
-                            UploadedAt = DateTime.UtcNow
-                        };
-                        await _mongoDbService.AppImages.InsertOneAsync(appImage);
-                        savedReturnImageUrls.Add($"/Asset/Image/{appImage.Id}");
+                        using var stream = file.OpenReadStream();
+                        var fileId = await _gridFsService.UploadFileAsync(stream, file.FileName, file.ContentType);
+                        savedReturnImageUrls.Add($"/image/{fileId}");
                     }
                 }
             }
@@ -498,11 +550,30 @@ namespace IndiAsset.Controllers
             if (!savedReturnImageUrls.Any())
             {
                 ModelState.AddModelError("ReturnPhotos", "Valid image files (.jpg, .png, .webp) are required.");
-                model.BaselineOriginalImageUrls = asset?.Images?.Select(i => i.Url).ToList() ?? new List<string>();
+                model.BaselineOriginalImageUrls = baselineImages;
+                model.RazorpayKeyId = _razorpayService.GetKeyId();
                 return View(model);
             }
 
-            // Create LeaseReturn record in MongoDB
+            // 4. Create Payment record in MongoDB
+            var payment = new Payment
+            {
+                BookingId = booking.Id ?? string.Empty,
+                PayerId = currentUserId ?? booking.RenterId,
+                PayeeId = booking.OwnerId,
+                RentAmount = booking.TotalRent,
+                DepositAmount = booking.SecurityDeposit,
+                Status = PaymentStatus.Paid,
+                PaymentMethod = "Razorpay",
+                TransactionId = model.RazorpayPaymentId,
+                RazorpayOrderId = model.RazorpayOrderId,
+                RazorpaySignature = model.RazorpaySignature,
+                CreatedAt = DateTime.UtcNow,
+                PaidAt = DateTime.UtcNow
+            };
+            await _mongoDbService.Payments.InsertOneAsync(payment);
+
+            // 5. Create LeaseReturn record in MongoDB
             var leaseReturn = new LeaseReturn
             {
                 BookingId = booking.Id ?? string.Empty,
@@ -525,14 +596,14 @@ namespace IndiAsset.Controllers
 
             await _mongoDbService.LeaseReturns.InsertOneAsync(leaseReturn);
 
-            // Record Review if provided
+            // 6. Record Review if provided
             if (model.Rating >= 1 && model.Rating <= 5 && !string.IsNullOrWhiteSpace(model.ReviewComment))
             {
                 var review = new Review
                 {
                     BookingId = booking.Id ?? string.Empty,
                     AssetId = booking.AssetId,
-                    ReviewerId = currentUserId,
+                    ReviewerId = currentUserId ?? booking.RenterId,
                     RevieweeId = booking.OwnerId,
                     Rating = model.Rating,
                     Comment = model.ReviewComment.Trim(),
@@ -541,17 +612,17 @@ namespace IndiAsset.Controllers
                 await _mongoDbService.Reviews.InsertOneAsync(review);
             }
 
-            // Update Booking to Completed
+            // 7. Update Booking to Completed
             var updateBooking = Builders<Booking>.Update
                 .Set(b => b.Status, BookingStatus.Completed);
             await _mongoDbService.Bookings.UpdateOneAsync(b => b.Id == model.BookingId, updateBooking);
 
-            // Notify Owner
+            // 8. Notify Owner
             var notification = new Notification
             {
                 UserId = booking.OwnerId,
-                Title = "Asset Returned & Photos Uploaded! 📸",
-                Message = $"Renter has returned '{booking.AssetTitle}' and submitted {savedReturnImageUrls.Count} return photos for comparison.",
+                Title = "Asset Returned & Settlement Paid via Razorpay! 💳📸",
+                Message = $"Renter has paid the settlement via Razorpay (Txn: {model.RazorpayPaymentId}), returned '{booking.AssetTitle}', and submitted {savedReturnImageUrls.Count} return photos.",
                 Type = "AssetReturned",
                 TargetUrl = Url.Action("InspectionReview", "Booking", new { bookingId = model.BookingId }) ?? $"/Booking/InspectionReview?bookingId={model.BookingId}",
                 CreatedAt = DateTime.UtcNow,
@@ -559,7 +630,7 @@ namespace IndiAsset.Controllers
             };
             await _mongoDbService.Notifications.InsertOneAsync(notification);
 
-            TempData["SuccessMessage"] = "Asset return photos uploaded successfully! The visual condition comparison and review report is ready.";
+            TempData["SuccessMessage"] = "Payment verified and asset returned successfully! Inspection & payment receipt ready.";
             return RedirectToAction(nameof(InspectionReview), new { bookingId = model.BookingId });
         }
 
@@ -600,6 +671,11 @@ namespace IndiAsset.Controllers
                 .Find(r => r.BookingId == bookingId)
                 .FirstOrDefaultAsync();
 
+            var payment = await _mongoDbService.Payments
+                .Find(p => p.BookingId == bookingId)
+                .SortByDescending(p => p.CreatedAt)
+                .FirstOrDefaultAsync();
+
             var baselineImages = asset.Images?.Select(i => i.Url).ToList() ?? new List<string>();
             if (!baselineImages.Any() && !string.IsNullOrEmpty(booking.AssetImageUrl))
             {
@@ -614,6 +690,7 @@ namespace IndiAsset.Controllers
                 Asset = asset,
                 LeaseReturn = leaseReturn,
                 Review = review,
+                Payment = payment,
                 OwnerName = owner?.FullName ?? owner?.Email ?? "Asset Owner",
                 RenterName = renter?.FullName ?? renter?.Email ?? "Renter",
                 IsOwner = isOwner,

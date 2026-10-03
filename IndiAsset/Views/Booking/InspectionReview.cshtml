@@ -103,6 +103,33 @@
                 </div>
             </div>
 
+            @if (Model.Payment != null)
+            {
+                <div class="card border-0 rounded-4 shadow-sm p-4 mb-4" style="background: linear-gradient(135deg, #152238 0%, #171d2b 100%); border: 1px solid rgba(34, 197, 94, 0.3) !important;">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="rounded-circle bg-success text-white d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+                                <i class="fa-solid fa-receipt fa-lg"></i>
+                            </div>
+                            <div>
+                                <h5 class="fw-bold text-white mb-0">Razorpay Lease Settlement Paid</h5>
+                                <div class="small text-muted">
+                                    Txn ID: <strong class="text-white font-monospace">@Model.Payment.TransactionId</strong> &bull;
+                                    Gateway: <span class="badge bg-primary bg-opacity-25 text-primary border border-primary border-opacity-25">Razorpay</span> &bull;
+                                    Settled on: @(Model.Payment.PaidAt?.ToString("dd MMM yyyy, hh:mm tt") ?? Model.Payment.CreatedAt.ToString("dd MMM yyyy"))
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-md-end">
+                            <span class="badge bg-success rounded-pill px-3 py-1.5 fw-bold">
+                                <i class="fa-solid fa-circle-check me-1"></i> Paid ₹@Model.Payment.TotalAmount.ToString("N0")
+                            </span>
+                            <div class="small text-muted mt-1">Rent: ₹@Model.Payment.RentAmount.ToString("N0") + Deposit: ₹@Model.Payment.DepositAmount.ToString("N0")</div>
+                        </div>
+                    </div>
+                </div>
+            }
+
             <!-- ====================================================== -->
             <!-- SIDE-BY-SIDE VISUAL PHOTO COMPARISON -->
             <!-- ====================================================== -->

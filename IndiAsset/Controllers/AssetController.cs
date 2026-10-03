@@ -10,6 +10,7 @@ namespace IndiAsset.Controllers
     public class AssetController : Controller
     {
         private readonly MongoDbService _mongoDbService;
+        private readonly GridFsService _gridFsService;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly AssetAvailabilityService _availabilityService;
         private readonly IWebHostEnvironment _webHostEnvironment;
@@ -17,11 +18,13 @@ namespace IndiAsset.Controllers
 
         public AssetController(
             MongoDbService mongoDbService,
+            GridFsService gridFsService,
             UserManager<ApplicationUser> userManager,
             AssetAvailabilityService availabilityService,
             IWebHostEnvironment webHostEnvironment)
         {
             _mongoDbService = mongoDbService;
+            _gridFsService = gridFsService;
             _userManager = userManager;
             _availabilityService = availabilityService;
             _webHostEnvironment = webHostEnvironment;
@@ -343,7 +346,7 @@ namespace IndiAsset.Controllers
                 UpdatedAt = DateTime.UtcNow
             };
 
-            // 1. Process Directly Uploaded Image Files (Stored directly in MongoDB)
+            // 1. Process Directly Uploaded Image Files (Stored in MongoDB Atlas GridFS)
             if (model.UploadedImages != null && model.UploadedImages.Any())
             {
                 var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp", ".avif", ".gif" };
@@ -354,22 +357,14 @@ namespace IndiAsset.Controllers
                         var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
                         if (allowedExtensions.Contains(ext))
                         {
-                            using var ms = new MemoryStream();
-                            await file.CopyToAsync(ms);
-                            var appImage = new AppImage
-                            {
-                                FileName = Path.GetFileName(file.FileName),
-                                ContentType = !string.IsNullOrEmpty(file.ContentType) ? file.ContentType : "image/jpeg",
-                                Data = ms.ToArray(),
-                                Size = file.Length,
-                                UploadedAt = DateTime.UtcNow
-                            };
-                            await _mongoDbService.AppImages.InsertOneAsync(appImage);
+                            using var stream = file.OpenReadStream();
+                            var fileId = await _gridFsService.UploadFileAsync(stream, file.FileName, file.ContentType);
+                            var imageUrl = $"/image/{fileId}";
 
                             asset.Images.Add(new AssetImage
                             {
-                                ImageUrl = $"/Asset/Image/{appImage.Id}",
-                                Url = $"/Asset/Image/{appImage.Id}",
+                                ImageUrl = imageUrl,
+                                Url = imageUrl,
                                 IsPrimary = asset.Images.Count == 0,
                                 Caption = model.Title
                             });
@@ -511,7 +506,7 @@ namespace IndiAsset.Controllers
             }
             // If no existing URLs sent and no new uploads, keep current images as-is
 
-            // Append newly uploaded images directly into MongoDB
+            // Append newly uploaded images (Stored in MongoDB Atlas GridFS)
             if (model.UploadedImages != null && model.UploadedImages.Any())
             {
                 var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp", ".avif", ".gif" };
@@ -522,22 +517,14 @@ namespace IndiAsset.Controllers
                         var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
                         if (allowedExtensions.Contains(ext))
                         {
-                            using var ms = new MemoryStream();
-                            await file.CopyToAsync(ms);
-                            var appImage = new AppImage
-                            {
-                                FileName = Path.GetFileName(file.FileName),
-                                ContentType = !string.IsNullOrEmpty(file.ContentType) ? file.ContentType : "image/jpeg",
-                                Data = ms.ToArray(),
-                                Size = file.Length,
-                                UploadedAt = DateTime.UtcNow
-                            };
-                            await _mongoDbService.AppImages.InsertOneAsync(appImage);
+                            using var stream = file.OpenReadStream();
+                            var fileId = await _gridFsService.UploadFileAsync(stream, file.FileName, file.ContentType);
+                            var imageUrl = $"/image/{fileId}";
 
                             asset.Images.Add(new AssetImage
                             {
-                                ImageUrl = $"/Asset/Image/{appImage.Id}",
-                                Url = $"/Asset/Image/{appImage.Id}",
+                                ImageUrl = imageUrl,
+                                Url = imageUrl,
                                 IsPrimary = asset.Images.Count == 0,
                                 Caption = model.Title
                             });
