@@ -480,3 +480,8 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Local configuration and uploaded files
+IndiAsset/Properties/serviceDependencies.local.json
+IndiAsset/appsettings.Development.json
+IndiAsset/wwwroot/uploads/
