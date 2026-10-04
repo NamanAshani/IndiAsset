@@ -47,6 +47,10 @@ namespace IndiAsset.Models
         public int ActiveBookingsCount { get; set; }
         public List<Booking> ConfirmedBookings { get; set; } = new();
         public List<BookingItemViewModel> OwnerPendingBookings { get; set; } = new();
+        public List<BookingItemViewModel> OwnerActiveBookings { get; set; } = new();
+        public List<BookingItemViewModel> OwnerRecentHistory { get; set; } = new();
+        public int TotalBookingsCount { get; set; }
+        public decimal TotalRevenueEarned { get; set; }
         public bool IsOwner { get; set; }
         public bool CanBook { get; set; }
         public BookingCreateViewModel BookingForm { get; set; } = new();
@@ -113,6 +117,14 @@ namespace IndiAsset.Models
         public DateTime EndDate { get; set; } = DateTime.UtcNow.Date.AddDays(4);
 
         public string? Notes { get; set; }
+
+        // Negotiation fields when requesting a lease
+        public bool ProposeNegotiatedPrice { get; set; }
+
+        [Range(1, 100000000, ErrorMessage = "Proposed daily rent must be greater than 0")]
+        public decimal? ProposedDailyRent { get; set; }
+
+        public string? NegotiationNotes { get; set; }
     }
 
     public class MyAssetsDashboardViewModel
@@ -147,6 +159,21 @@ namespace IndiAsset.Models
         public int TotalDays => Math.Max(1, (int)(EndDate.Date - StartDate.Date).TotalDays);
         public decimal DailyRent { get; set; }
         public decimal TotalRent { get; set; }
+        public decimal OriginalDailyRent { get; set; }
+        public decimal OriginalTotalRent { get; set; }
+        public bool IsNegotiated { get; set; }
+        public decimal? NegotiatedDailyRent { get; set; }
+        public decimal? ProposedNegotiatedDailyRent { get; set; }
+        public decimal? ProposedNegotiatedTotalRent => ProposedNegotiatedDailyRent.HasValue ? ProposedNegotiatedDailyRent.Value * TotalDays : null;
+        public string? NegotiationOfferedByUserId { get; set; }
+        public string? NegotiationStatus { get; set; }
+        public string? NegotiationNotes { get; set; }
+        public DateTime? NegotiatedAt { get; set; }
+        public bool CanNegotiate => !IsSecurityDepositPaid && (Status == BookingStatus.Approved || Status == BookingStatus.Pending);
+        public bool IsPriceAgreed { get; set; }
+        public DateTime? PriceAgreedAt { get; set; }
+        public decimal? AgreedDailyRent { get; set; }
+        public string? PriceAgreedByUserId { get; set; }
         public decimal SecurityDeposit { get; set; }
         public decimal TotalAmount { get; set; }
         public BookingStatus Status { get; set; }

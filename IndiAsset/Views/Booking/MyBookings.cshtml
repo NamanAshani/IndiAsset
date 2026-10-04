@@ -11,6 +11,8 @@
                                         : "nav-link d-flex align-items-center justify-content-center gap-2";
     string renterPaneClass = isOwnerTab ? "tab-pane fade" : "tab-pane fade show active";
     string ownerPaneClass  = isOwnerTab ? "tab-pane fade show active" : "tab-pane fade";
+
+    var allEligibleBookings = Model.AsRenterBookings.Concat(Model.AsOwnerBookings).Where(b => b.CanNegotiate).ToList();
 }
 
 @section Styles {
@@ -54,6 +56,15 @@
             color: #ffffff;
             background: rgba(255, 255, 255, 0.05);
         }
+        .negotiated-pill {
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #34d399;
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 20px;
+        }
     </style>
 }
 
@@ -61,7 +72,7 @@
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
         <div>
             <h1 class="h2 fw-bold text-white mb-1">Lease Agreements &amp; Bookings</h1>
-            <p class="text-muted mb-0">Track assets you are taking on lease, and manage lease inquiries on your listed equipment.</p>
+            <p class="text-muted mb-0">Track assets you are taking on lease, negotiate agreed rental pricing, and manage incoming inquiries on your listed equipment.</p>
         </div>
         <a asp-controller="Asset" asp-action="Index" class="btn btn-outline-primary rounded-pill px-4 py-2 fw-semibold">
             <i class="fa-solid fa-magnifying-glass me-1"></i> Browse Marketplace
@@ -102,7 +113,9 @@
 
     <div class="tab-content" id="bookingTabsContent">
 
-        <!-- TAB 1: AS RENTER -->
+        <!-- ====================================================== -->
+        <!-- TAB 1: AS RENTER (MY LEASES) -->
+        <!-- ====================================================== -->
         <div class="@renterPaneClass" id="renter-content" role="tabpanel">
             @if (Model.AsRenterBookings.Any())
             {
@@ -113,11 +126,24 @@
                             <div class="booking-card h-100 overflow-hidden">
                                 <div class="card-body p-4 d-flex flex-column">
                                     <div class="d-flex align-items-center justify-content-between mb-3">
-                                        <span class="badge bg-secondary bg-opacity-25 text-white border border-secondary border-opacity-25 rounded-pill px-3 py-1">@item.Category</span>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge bg-secondary bg-opacity-25 text-white border border-secondary border-opacity-25 rounded-pill px-3 py-1">@item.Category</span>
+                                            @if (item.IsNegotiated)
+                                            {
+                                                <span class="negotiated-pill"><i class="fa-solid fa-handshake me-1"></i>Negotiated Price</span>
+                                            }
+                                        </div>
                                         @switch (item.Status)
                                         {
                                             case BookingStatus.Pending:
-                                                <span class="badge bg-warning text-dark rounded-pill px-3 py-1 fw-semibold"><i class="fa-solid fa-hourglass-half me-1"></i> Awaiting Approval</span>
+                                                if (!item.IsPriceAgreed)
+                                                {
+                                                    <span class="badge bg-warning text-dark rounded-pill px-3 py-1 fw-semibold"><i class="fa-solid fa-handshake me-1"></i> Awaiting Price Agreement</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-info text-dark rounded-pill px-3 py-1 fw-semibold"><i class="fa-solid fa-check me-1"></i> Price Agreed</span>
+                                                }
                                                 break;
                                             case BookingStatus.Approved:
                                                 <span class="badge bg-info text-dark rounded-pill px-3 py-1 fw-semibold"><i class="fa-solid fa-check me-1"></i> Approved</span>
@@ -136,6 +162,7 @@
                                                 break;
                                         }
                                     </div>
+
                                     <div class="d-flex gap-3 mb-3">
                                         <div class="rounded-3 overflow-hidden bg-dark flex-shrink-0 border border-secondary border-opacity-25" style="width:80px;height:80px;">
                                             @if (!string.IsNullOrEmpty(item.AssetImageUrl))
@@ -154,22 +181,64 @@
                                             <p class="small text-muted mb-0">Owner: <strong class="text-white">@item.OtherUserName</strong></p>
                                         </div>
                                     </div>
+
+                                    <!-- PRICING & LEASE SUMMARY BOX -->
                                     <div class="booking-info-box mb-3 small">
                                         <div class="d-flex justify-content-between mb-1">
                                             <span class="text-muted"><i class="fa-regular fa-calendar me-1"></i> Duration:</span>
-                                            <span class="fw-semibold text-white">@item.StartDate.ToString("dd MMM yyyy") - @item.EndDate.ToString("dd MMM yyyy") (@item.TotalDays days)</span>
+                                            @if (item.IsPriceAgreed)
+                                            {
+                                                <span class="fw-semibold text-white">@item.StartDate.ToString("dd MMM yyyy") - @item.EndDate.ToString("dd MMM yyyy") (@item.TotalDays days) <span class="badge bg-success bg-opacity-25 text-success rounded-pill px-2 py-0.5" style="font-size:0.65rem;">Starts on Agreement Date</span></span>
+                                            }
+                                            else
+                                            {
+                                                <span class="fw-semibold text-white">@item.TotalDays days <span class="badge bg-warning bg-opacity-25 text-warning rounded-pill px-2 py-0.5" style="font-size:0.65rem;">Starts when price is agreed</span></span>
+                                            }
                                         </div>
-                                        <div class="d-flex justify-content-between mb-1">
-                                            <span class="text-muted">Total Rent:</span>
-                                            <span class="text-white">₹@item.TotalRent.ToString("N0")</span>
+
+                                        <!-- Daily Rate with Negotiation Display -->
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <span class="text-muted"><i class="fa-solid fa-tag me-1"></i> Daily Rate:</span>
+                                            @if (item.IsNegotiated)
+                                            {
+                                                <div class="text-end">
+                                                    <span class="text-success fw-bold">₹@item.DailyRent.ToString("N0")/day</span>
+                                                    <span class="text-muted text-decoration-line-through small ms-1">₹@item.OriginalDailyRent.ToString("N0")</span>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-white fw-semibold">₹@item.DailyRent.ToString("N0")/day</span>
+                                            }
                                         </div>
+
+                                        <!-- Total Rental -->
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <span class="text-muted">Total Rent (@item.TotalDays days):</span>
+                                            @if (item.IsNegotiated)
+                                            {
+                                                <div class="text-end">
+                                                    <span class="text-white fw-bold">₹@item.TotalRent.ToString("N0")</span>
+                                                    @if (item.OriginalTotalRent > item.TotalRent)
+                                                    {
+                                                        <span class="text-success small fw-normal ms-1">(Saved ₹@(item.OriginalTotalRent - item.TotalRent))</span>
+                                                    }
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-white fw-semibold">₹@item.TotalRent.ToString("N0")</span>
+                                            }
+                                        </div>
+
+                                        <!-- Escrow Security Deposit -->
                                         <div class="d-flex justify-content-between mb-1">
                                             <span class="text-muted">Escrow Security Deposit:</span>
                                             @if (item.SecurityDeposit > 0)
                                             {
                                                 @if (item.IsSecurityDepositPaid)
                                                 {
-                                                    <span class="text-success fw-semibold"><i class="fa-solid fa-shield-check me-1"></i>₹@item.SecurityDeposit.ToString("N0") (Paid in Escrow)</span>
+                                                    <span class="text-success fw-semibold"><i class="fa-solid fa-shield-check me-1"></i>₹@item.SecurityDeposit.ToString("N0") (Secured in Escrow)</span>
                                                 }
                                                 else
                                                 {
@@ -181,50 +250,152 @@
                                                 <span class="text-muted">₹0</span>
                                             }
                                         </div>
+
                                         <div class="d-flex justify-content-between border-top border-secondary border-opacity-25 pt-2 mt-2 fw-bold text-white">
                                             <span>Est. Settlement on Return:</span>
                                             <span class="text-primary">₹@Math.Max(0, item.TotalRent - (item.IsSecurityDepositPaid ? item.SecurityDeposit : 0)).ToString("N0")</span>
                                         </div>
                                     </div>
-                                    @if (item.Status == BookingStatus.Pending && !item.IsSecurityDepositPaid && item.SecurityDeposit > 0)
+
+                                    <!-- NEGOTIATION / PRICE AGREEMENT STATUS BANNERS -->
+                                    @if (!item.IsPriceAgreed)
                                     {
-                                        <div class="alert alert-warning py-2 px-3 small rounded-3 mb-3 d-flex align-items-center justify-content-between gap-2 border border-warning border-opacity-25" style="background: rgba(245, 158, 11, 0.12);">
-                                            <div>
-                                                <i class="fa-solid fa-shield-halved text-warning me-1"></i>
-                                                <strong class="text-warning">Deposit Required:</strong>
-                                                <span class="text-white-50">Pay deposit into escrow to enable owner approval.</span>
+                                        if (item.NegotiationStatus == "Offered" && item.ProposedNegotiatedDailyRent.HasValue)
+                                        {
+                                            if (item.NegotiationOfferedByUserId != item.OtherUserId)
+                                            {
+                                                <div class="alert alert-info py-2 px-3 small rounded-3 mb-3 border border-info border-opacity-25 d-flex align-items-center justify-content-between" style="background: rgba(59, 130, 246, 0.12);">
+                                                    <div>
+                                                        <i class="fa-solid fa-handshake text-info me-1"></i>
+                                                        <strong>Negotiation Proposed:</strong> You proposed <strong>₹@item.ProposedNegotiatedDailyRent.Value.ToString("N0")/day</strong> (Total: ₹@item.ProposedNegotiatedTotalRent?.ToString("N0")).
+                                                        <span class="text-white-50 d-block small">Awaiting agreement from owner. Deposit payment unlocks once agreed.</span>
+                                                    </div>
+                                                    <button type="button" class="btn btn-sm btn-outline-info rounded-pill px-2.5 py-1" data-bs-toggle="modal" data-bs-target="#negotiateModal_@item.BookingId">
+                                                        Update
+                                                    </button>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <div class="alert alert-warning py-2.5 px-3 small rounded-3 mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2 border border-warning border-opacity-25" style="background: rgba(245, 158, 11, 0.15);">
+                                                    <div>
+                                                        <i class="fa-solid fa-tag text-warning me-1"></i>
+                                                        <strong>Owner Counter-Offer Received:</strong> Owner proposed <strong>₹@item.ProposedNegotiatedDailyRent.Value.ToString("N0")/day</strong> (Total: ₹@item.ProposedNegotiatedTotalRent?.ToString("N0"), Original: ₹@item.OriginalDailyRent.ToString("N0")/day).
+                                                        @if (!string.IsNullOrWhiteSpace(item.NegotiationNotes))
+                                                        {
+                                                            <div class="text-white-50 small mt-0.5"><em>Owner's Note: "@item.NegotiationNotes"</em></div>
+                                                        }
+                                                    </div>
+                                                    <div class="d-flex gap-1 flex-shrink-0">
+                                                        <form method="post" asp-action="AgreePrice" asp-route-bookingId="@item.BookingId" asp-route-agreedDailyRent="@item.ProposedNegotiatedDailyRent.Value" class="d-inline">
+                                                            @Html.AntiForgeryToken()
+                                                            <button type="submit" class="btn btn-success btn-sm rounded-pill px-3 py-1 fw-bold shadow-sm" title="Accept owner's counter-offer and set lease start date to today">
+                                                                <i class="fa-solid fa-check me-1"></i> Accept &amp; Agree
+                                                            </button>
+                                                        </form>
+                                                        <button type="button" class="btn btn-outline-warning btn-sm rounded-pill px-2.5 py-1" data-bs-toggle="modal" data-bs-target="#negotiateModal_@item.BookingId" title="Counter-Offer">
+                                                            Counter
+                                                        </button>
+                                                        <form method="post" asp-action="DeclineNegotiation" asp-route-bookingId="@item.BookingId" class="d-inline">
+                                                            @Html.AntiForgeryToken()
+                                                            <button type="submit" class="btn btn-outline-secondary btn-sm rounded-pill px-2 py-1">Decline</button>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <div class="alert alert-primary py-2 px-3 small rounded-3 mb-3 d-flex align-items-center justify-content-between gap-2 border border-primary border-opacity-25" style="background: rgba(59, 130, 246, 0.12);">
+                                                <div>
+                                                    <i class="fa-solid fa-handshake text-primary me-1"></i>
+                                                    <strong>Price Agreement Needed:</strong> Rental rate must be agreed upon before deposit payment.
+                                                </div>
+                                                <div class="d-flex gap-1 flex-shrink-0">
+                                                    <form method="post" asp-action="AgreePrice" asp-route-bookingId="@item.BookingId" class="d-inline">
+                                                        @Html.AntiForgeryToken()
+                                                        <button type="submit" class="btn btn-outline-light btn-sm rounded-pill px-2.5 py-1" title="Agree to current price and start lease today">
+                                                            Agree to ₹@item.DailyRent.ToString("N0")/d
+                                                        </button>
+                                                    </form>
+                                                </div>
                                             </div>
-                                            <a asp-controller="Booking" asp-action="PayDeposit" asp-route-id="@item.BookingId" class="btn btn-warning btn-sm rounded-pill px-3 py-1 fw-bold text-dark flex-shrink-0 shadow-sm">
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <div class="alert alert-success py-2 px-3 small rounded-3 mb-3 border border-success border-opacity-25 d-flex align-items-center justify-content-between" style="background: rgba(34, 197, 94, 0.12);">
+                                            <div>
+                                                <i class="fa-solid fa-circle-check text-success me-1"></i>
+                                                <strong>Price Agreed (₹@item.DailyRent.ToString("N0")/day)!</strong> The lease dates start from the agreement date (@item.StartDate.ToString("dd MMM yyyy") to @item.EndDate.ToString("dd MMM yyyy")).
+                                            </div>
+                                        </div>
+                                    }
+
+                                    <!-- DEPOSIT PAYMENT BANNER -->
+                                    @if (item.IsPriceAgreed && !item.IsSecurityDepositPaid && item.SecurityDeposit > 0 && (item.Status == BookingStatus.Approved || item.Status == BookingStatus.Pending))
+                                    {
+                                        <div class="alert @(item.Status == BookingStatus.Approved ? "alert-success border-success" : "alert-warning border-warning") py-2 px-3 small rounded-3 mb-3 d-flex align-items-center justify-content-between gap-2 border border-opacity-25" style="background: @(item.Status == BookingStatus.Approved ? "rgba(34, 197, 94, 0.12)" : "rgba(245, 158, 11, 0.12)");">
+                                            <div>
+                                                <i class="fa-solid fa-shield-halved @(item.Status == BookingStatus.Approved ? "text-success" : "text-warning") me-1"></i>
+                                                <strong class="@(item.Status == BookingStatus.Approved ? "text-success" : "text-warning")">
+                                                    @(item.Status == BookingStatus.Approved ? "Lease Request Approved!" : "Deposit Payment Ready:")
+                                                </strong>
+                                                <span class="text-white-50">
+                                                    Price is agreed! Please pay the escrow deposit to secure your equipment.
+                                                </span>
+                                            </div>
+                                            <a asp-controller="Booking" asp-action="PayDeposit" asp-route-id="@item.BookingId" class="btn @(item.Status == BookingStatus.Approved ? "btn-success" : "btn-warning") btn-sm rounded-pill px-3 py-1 fw-bold text-dark flex-shrink-0 shadow-sm">
                                                 Pay ₹@item.SecurityDeposit.ToString("N0")
                                             </a>
                                         </div>
                                     }
+
+                                    <!-- ACTION BUTTONS -->
                                     <div class="mt-auto d-flex flex-wrap gap-2">
-                                        @if (item.Status == BookingStatus.Pending && !item.IsSecurityDepositPaid && item.SecurityDeposit > 0)
+                                        @if (item.IsPriceAgreed && !item.IsSecurityDepositPaid && item.SecurityDeposit > 0 && (item.Status == BookingStatus.Approved || item.Status == BookingStatus.Pending))
                                         {
                                             <a asp-controller="Booking" asp-action="PayDeposit" asp-route-id="@item.BookingId" class="btn btn-warning btn-sm rounded-pill px-3 py-2 fw-bold text-dark shadow-sm">
                                                 <i class="fa-solid fa-shield-halved me-1"></i> Pay Security Deposit (₹@item.SecurityDeposit.ToString("N0"))
                                             </a>
                                         }
+                                        else if (!item.IsPriceAgreed && item.SecurityDeposit > 0 && (item.Status == BookingStatus.Approved || item.Status == BookingStatus.Pending))
+                                        {
+                                            <span class="badge bg-secondary bg-opacity-25 text-white-50 border border-secondary border-opacity-25 px-3 py-2 rounded-pill d-inline-flex align-items-center">
+                                                <i class="fa-solid fa-lock me-1 text-warning"></i> Deposit Unlocks After Price Agreement
+                                            </span>
+                                        }
+
+                                        @if (item.CanNegotiate)
+                                        {
+                                            <button type="button" class="btn btn-outline-info btn-sm rounded-pill px-3 py-2 fw-semibold" data-bs-toggle="modal" data-bs-target="#negotiateModal_@item.BookingId">
+                                                <i class="fa-solid fa-handshake me-1"></i> @(item.IsNegotiated ? "Re-negotiate Price" : "Give Negotiated Price")
+                                            </button>
+                                        }
+
                                         <a asp-controller="Chat" asp-action="Index" asp-route-recipientId="@item.OtherUserId" class="btn btn-outline-primary btn-sm rounded-pill py-2 px-3 fw-semibold">
                                             <i class="fa-regular fa-comments me-1"></i> Chat
                                         </a>
+
                                         <a asp-controller="Asset" asp-action="Details" asp-route-id="@item.AssetId" class="btn btn-outline-secondary btn-sm rounded-pill px-3 py-2 text-white">
                                             View Asset
                                         </a>
-                                        @if (item.Status == BookingStatus.Active || item.Status == BookingStatus.Approved)
+
+                                        @if (item.Status == BookingStatus.Active && (item.IsSecurityDepositPaid || item.SecurityDeposit <= 0))
                                         {
                                             <a asp-controller="Booking" asp-action="ReturnAsset" asp-route-bookingId="@item.BookingId" class="btn btn-warning btn-sm rounded-pill px-3 py-2 fw-semibold text-dark">
                                                 <i class="fa-solid fa-credit-card me-1"></i> Pay &amp; Return Asset
                                             </a>
                                         }
+
                                         @if (item.Status == BookingStatus.Completed || item.HasReturnInspection)
                                         {
                                             <a asp-controller="Booking" asp-action="InspectionReview" asp-route-bookingId="@item.BookingId" class="btn btn-info btn-sm rounded-pill px-3 py-2 fw-semibold text-dark">
                                                 <i class="fa-solid fa-clipboard-check me-1"></i> View Condition &amp; Review
                                             </a>
                                         }
-                                        @if (item.Status == BookingStatus.Pending)
+
+                                        @if (item.Status == BookingStatus.Pending || (item.Status == BookingStatus.Approved && !item.IsSecurityDepositPaid))
                                         {
                                             <form method="post" asp-action="Cancel" asp-route-id="@item.BookingId" class="d-inline" onsubmit="return confirm('Cancel this lease request?');">
                                                 @Html.AntiForgeryToken()
@@ -251,7 +422,9 @@
             }
         </div>
 
-        <!-- TAB 2: AS ASSET OWNER -->
+        <!-- ====================================================== -->
+        <!-- TAB 2: AS ASSET OWNER (DASHBOARD) -->
+        <!-- ====================================================== -->
         <div class="@ownerPaneClass" id="owner-content" role="tabpanel">
             @if (Model.AsOwnerBookings.Any())
             {
@@ -262,11 +435,24 @@
                             <div class="booking-card h-100 overflow-hidden">
                                 <div class="card-body p-4 d-flex flex-column">
                                     <div class="d-flex align-items-center justify-content-between mb-3">
-                                        <span class="badge bg-secondary bg-opacity-25 text-white border border-secondary border-opacity-25 rounded-pill px-3 py-1">@item.Category</span>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge bg-secondary bg-opacity-25 text-white border border-secondary border-opacity-25 rounded-pill px-3 py-1">@item.Category</span>
+                                            @if (item.IsNegotiated)
+                                            {
+                                                <span class="negotiated-pill"><i class="fa-solid fa-handshake me-1"></i>Negotiated Price</span>
+                                            }
+                                        </div>
                                         @switch (item.Status)
                                         {
                                             case BookingStatus.Pending:
-                                                <span class="badge bg-warning text-dark rounded-pill px-3 py-1 fw-semibold"><i class="fa-solid fa-bell me-1"></i> Action Needed: Request Received</span>
+                                                if (!item.IsPriceAgreed)
+                                                {
+                                                    <span class="badge bg-warning text-dark rounded-pill px-3 py-1 fw-semibold"><i class="fa-solid fa-handshake me-1"></i> Action Needed: Agree on Price</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-info text-dark rounded-pill px-3 py-1 fw-semibold"><i class="fa-solid fa-bell me-1"></i> Price Agreed: Ready for Approval</span>
+                                                }
                                                 break;
                                             case BookingStatus.Approved:
                                                 <span class="badge bg-info text-dark rounded-pill px-3 py-1 fw-semibold"><i class="fa-solid fa-check me-1"></i> Approved</span>
@@ -285,6 +471,7 @@
                                                 break;
                                         }
                                     </div>
+
                                     <div class="d-flex gap-3 mb-3">
                                         <div class="rounded-3 overflow-hidden bg-dark flex-shrink-0 border border-secondary border-opacity-25" style="width:80px;height:80px;">
                                             @if (!string.IsNullOrEmpty(item.AssetImageUrl))
@@ -303,15 +490,51 @@
                                             <p class="small text-muted mb-0">Requested by: <strong class="text-white">@item.OtherUserName</strong></p>
                                         </div>
                                     </div>
+
+                                    <!-- OWNER LEASE PRICING BOX -->
                                     <div class="booking-info-box mb-3 small">
                                         <div class="d-flex justify-content-between mb-1">
                                             <span class="text-muted"><i class="fa-regular fa-calendar me-1"></i> Schedule:</span>
-                                            <span class="fw-semibold text-white">@item.StartDate.ToString("dd MMM yyyy") - @item.EndDate.ToString("dd MMM yyyy") (@item.TotalDays days)</span>
+                                            @if (item.IsPriceAgreed)
+                                            {
+                                                <span class="fw-semibold text-white">@item.StartDate.ToString("dd MMM yyyy") - @item.EndDate.ToString("dd MMM yyyy") (@item.TotalDays days) <span class="badge bg-success bg-opacity-25 text-success rounded-pill px-2 py-0.5" style="font-size:0.65rem;">Starts on Agreement Date</span></span>
+                                            }
+                                            else
+                                            {
+                                                <span class="fw-semibold text-white">@item.TotalDays days <span class="badge bg-warning bg-opacity-25 text-warning rounded-pill px-2 py-0.5" style="font-size:0.65rem;">Starts when price is agreed</span></span>
+                                            }
                                         </div>
+
+                                        <!-- Daily Rate with Negotiation Display -->
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <span class="text-muted"><i class="fa-solid fa-tag me-1"></i> Daily Rate:</span>
+                                            @if (item.IsNegotiated)
+                                            {
+                                                <div class="text-end">
+                                                    <span class="text-success fw-bold">₹@item.DailyRent.ToString("N0")/day</span>
+                                                    <span class="text-muted text-decoration-line-through small ms-1">₹@item.OriginalDailyRent.ToString("N0")</span>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-white fw-semibold">₹@item.DailyRent.ToString("N0")/day</span>
+                                            }
+                                        </div>
+
+                                        <!-- Earnings (Rent) -->
                                         <div class="d-flex justify-content-between mb-1">
                                             <span class="text-muted">Earnings (Rent):</span>
-                                            <span class="fw-semibold text-success">₹@item.TotalRent.ToString("N0")</span>
+                                            @if (item.IsNegotiated)
+                                            {
+                                                <span class="fw-bold text-success">₹@item.TotalRent.ToString("N0") <span class="text-muted small fw-normal">(Negotiated Rate)</span></span>
+                                            }
+                                            else
+                                            {
+                                                <span class="fw-semibold text-success">₹@item.TotalRent.ToString("N0")</span>
+                                            }
                                         </div>
+
+                                        <!-- Escrow Deposit -->
                                         <div class="d-flex justify-content-between border-top border-secondary border-opacity-25 pt-2 mt-2">
                                             <span class="text-muted">Escrow Deposit:</span>
                                             @if (item.SecurityDeposit > 0)
@@ -331,37 +554,149 @@
                                             }
                                         </div>
                                     </div>
-                                    <div class="mt-auto d-flex flex-wrap gap-2">
+
+                                    <!-- OWNER NEGOTIATION / PRICE AGREEMENT OFFER BANNER -->
+                                    @if (!item.IsPriceAgreed)
+                                    {
+                                        if (item.NegotiationStatus == "Offered" && item.ProposedNegotiatedDailyRent.HasValue)
+                                        {
+                                            if (item.NegotiationOfferedByUserId != item.OtherUserId)
+                                            {
+                                                <!-- OWNER MADE THIS COUNTER-OFFER: MUST WAIT FOR RENTER TO ACCEPT/REJECT -->
+                                                <div class="alert alert-info py-2.5 px-3 small rounded-3 mb-3 border border-info border-opacity-30 d-flex align-items-center justify-content-between flex-wrap gap-2" style="background: rgba(59, 130, 246, 0.12);">
+                                                    <div>
+                                                        <i class="fa-solid fa-clock-rotate-left text-info me-1.5"></i>
+                                                        <strong>Counter-Offer Sent to Renter:</strong> You proposed <strong>₹@item.ProposedNegotiatedDailyRent.Value.ToString("N0")/day</strong> (Total: ₹@item.ProposedNegotiatedTotalRent?.ToString("N0")).
+                                                        <span class="text-white-50 d-block small">Awaiting renter to accept or reject your offer before lease can be approved.</span>
+                                                    </div>
+                                                    <div class="d-flex gap-1 flex-shrink-0">
+                                                        <button type="button" class="btn btn-outline-info btn-sm rounded-pill px-2.5 py-1" data-bs-toggle="modal" data-bs-target="#negotiateModal_@item.BookingId">
+                                                            Modify Offer
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <!-- RENTER PROPOSED THIS OFFER: OWNER CAN ACCEPT, COUNTER, OR DECLINE -->
+                                                <div class="alert alert-warning py-2.5 px-3 small rounded-3 mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2 border border-warning border-opacity-25" style="background: rgba(245, 158, 11, 0.15);">
+                                                    <div>
+                                                        <i class="fa-solid fa-handshake text-warning me-1"></i>
+                                                        <strong>Renter Proposed Negotiated Rate:</strong>
+                                                        <span class="text-white fw-bold">₹@item.ProposedNegotiatedDailyRent.Value.ToString("N0")/day</span>
+                                                        <span class="text-white-50">(Total: ₹@item.ProposedNegotiatedTotalRent?.ToString("N0"), Original: ₹@item.OriginalDailyRent.ToString("N0")/day)</span>
+                                                        @if (!string.IsNullOrWhiteSpace(item.NegotiationNotes))
+                                                        {
+                                                            <div class="text-white-50 small mt-0.5"><em>Note: "@item.NegotiationNotes"</em></div>
+                                                        }
+                                                    </div>
+                                                    <div class="d-flex gap-1 flex-shrink-0">
+                                                        <form method="post" asp-action="AgreePrice" asp-route-bookingId="@item.BookingId" asp-route-agreedDailyRent="@item.ProposedNegotiatedDailyRent.Value" class="d-inline">
+                                                            @Html.AntiForgeryToken()
+                                                            <button type="submit" class="btn btn-success btn-sm rounded-pill px-3 py-1 fw-bold shadow-sm" title="Accept proposed rate and start lease today">
+                                                                <i class="fa-solid fa-check me-1"></i> Accept &amp; Agree
+                                                            </button>
+                                                        </form>
+                                                        <button type="button" class="btn btn-outline-info btn-sm rounded-pill px-2.5 py-1" data-bs-toggle="modal" data-bs-target="#negotiateModal_@item.BookingId" title="Counter-Offer">
+                                                            Counter
+                                                        </button>
+                                                        <form method="post" asp-action="DeclineNegotiation" asp-route-bookingId="@item.BookingId" class="d-inline">
+                                                            @Html.AntiForgeryToken()
+                                                            <button type="submit" class="btn btn-outline-secondary btn-sm rounded-pill px-2 py-1">Decline</button>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <div class="alert alert-primary py-2 px-3 small rounded-3 mb-3 d-flex align-items-center justify-content-between gap-2 border border-primary border-opacity-25" style="background: rgba(59, 130, 246, 0.12);">
+                                                <div>
+                                                    <i class="fa-solid fa-handshake text-primary me-1"></i>
+                                                    <strong>Price Agreement Needed:</strong> Agree to rate with renter before approving lease.
+                                                </div>
+                                                <div class="d-flex gap-1 flex-shrink-0">
+                                                    <form method="post" asp-action="AgreePrice" asp-route-bookingId="@item.BookingId" class="d-inline">
+                                                        @Html.AntiForgeryToken()
+                                                        <button type="submit" class="btn btn-warning btn-sm rounded-pill px-3 py-1 fw-bold text-dark shadow-sm" title="Agree on price and set lease start date to today">
+                                                            <i class="fa-solid fa-handshake me-1"></i> Agree to ₹@item.DailyRent.ToString("N0")/d
+                                                        </button>
+                                                    </form>
+                                                    <button type="button" class="btn btn-outline-info btn-sm rounded-pill px-2.5 py-1" data-bs-toggle="modal" data-bs-target="#negotiateModal_@item.BookingId" title="Propose Counter-Offer">
+                                                        Counter
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <div class="alert alert-success py-2 px-3 small rounded-3 mb-3 border border-success border-opacity-25 d-flex align-items-center justify-content-between" style="background: rgba(34, 197, 94, 0.12);">
+                                            <div>
+                                                <i class="fa-solid fa-circle-check text-success me-1"></i>
+                                                <strong>Price Agreed (₹@item.DailyRent.ToString("N0")/day)!</strong> Lease schedule: @item.StartDate.ToString("dd MMM yyyy") to @item.EndDate.ToString("dd MMM yyyy"). Ready for approval.
+                                            </div>
+                                        </div>
+                                    }
+
+                                    <!-- OWNER ACTION BUTTONS -->
+                                    <div class="mt-auto d-flex flex-wrap gap-2 align-items-center">
                                         <a asp-controller="Chat" asp-action="Index" asp-route-recipientId="@item.OtherUserId" class="btn btn-outline-primary btn-sm rounded-pill py-2 px-3 fw-semibold">
                                             <i class="fa-regular fa-comments me-1"></i> Chat with Renter
                                         </a>
+
+                                        @if (item.CanNegotiate)
+                                        {
+                                            <button type="button" class="btn btn-outline-info btn-sm rounded-pill px-3 py-2 fw-semibold" data-bs-toggle="modal" data-bs-target="#negotiateModal_@item.BookingId">
+                                                <i class="fa-solid fa-handshake me-1"></i> @(item.IsNegotiated ? "Adjust Negotiated Price" : "Propose Counter-Offer")
+                                            </button>
+                                        }
+
                                         @if (item.Status == BookingStatus.Completed || item.HasReturnInspection)
                                         {
                                             <a asp-controller="Booking" asp-action="InspectionReview" asp-route-bookingId="@item.BookingId" class="btn btn-info btn-sm rounded-pill px-3 py-2 fw-semibold text-dark">
                                                 <i class="fa-solid fa-clipboard-check me-1"></i> Inspect Condition &amp; Review
                                             </a>
                                         }
+
                                         @if (item.Status == BookingStatus.Pending)
                                         {
-                                            @if (item.IsSecurityDepositPaid || item.SecurityDeposit <= 0)
+                                            @if (item.IsPriceAgreed)
                                             {
                                                 <form method="post" asp-action="Approve" asp-route-id="@item.BookingId" class="d-inline">
                                                     @Html.AntiForgeryToken()
-                                                    <button type="submit" class="btn btn-success btn-sm rounded-pill px-3 py-2 fw-semibold">
-                                                        <i class="fa-solid fa-check me-1"></i> Accept Request
+                                                    <button type="submit" class="btn btn-success btn-sm rounded-pill px-3 py-2 fw-semibold shadow-sm">
+                                                        <i class="fa-solid fa-check me-1"></i> Approve Lease
                                                     </button>
                                                 </form>
                                             }
+                                            else if (item.NegotiationStatus == "Offered" && item.NegotiationOfferedByUserId != item.OtherUserId)
+                                            {
+                                                <!-- OWNER HAS ACTIVE COUNTER-OFFER: MUST WAIT FOR RENTER RESPONSE -->
+                                                <span class="badge bg-warning bg-opacity-20 text-warning border border-warning border-opacity-30 px-3 py-2 rounded-pill d-inline-flex align-items-center">
+                                                    <i class="fa-solid fa-hourglass-half me-1.5"></i> Waiting for Renter Response
+                                                </span>
+                                            }
                                             else
                                             {
-                                                <button class="btn btn-secondary btn-sm rounded-pill px-3 py-2 fw-semibold" disabled title="Renter must pay the escrow deposit first">
-                                                    <i class="fa-solid fa-lock me-1"></i> Awaiting Renter Deposit
-                                                </button>
+                                                <form method="post" asp-action="AgreePrice" asp-route-bookingId="@item.BookingId" class="d-inline">
+                                                    @Html.AntiForgeryToken()
+                                                    <button type="submit" class="btn btn-warning btn-sm rounded-pill px-3 py-2 fw-semibold text-dark shadow-sm" title="Agree on price and set lease start date to today">
+                                                        <i class="fa-solid fa-handshake me-1"></i> Agree Price (₹@(item.ProposedNegotiatedDailyRent?.ToString("N0") ?? item.DailyRent.ToString("N0"))/d)
+                                                    </button>
+                                                </form>
                                             }
+
                                             <form method="post" asp-action="Reject" asp-route-id="@item.BookingId" class="d-inline" onsubmit="return confirm('Decline this lease inquiry?');">
                                                 @Html.AntiForgeryToken()
                                                 <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3 py-2">Decline</button>
                                             </form>
+                                        }
+                                        else if (item.Status == BookingStatus.Approved && !item.IsSecurityDepositPaid && item.SecurityDeposit > 0)
+                                        {
+                                            <span class="badge bg-secondary bg-opacity-25 text-white-50 border border-secondary border-opacity-25 px-3 py-2 rounded-pill d-inline-flex align-items-center">
+                                                <i class="fa-solid fa-clock me-1 text-warning"></i> Approved &bull; Awaiting Renter Deposit
+                                            </span>
                                         }
                                     </div>
                                 </div>
@@ -385,3 +720,146 @@
 
     </div>
 </div>
+
+<!-- ====================================================== -->
+<!-- MODALS FOR GIVING / SETTING NEGOTIATED PRICE -->
+<!-- ====================================================== -->
+@foreach (var item in allEligibleBookings)
+{
+    var currentDefaultRate = item.ProposedNegotiatedDailyRent ?? (item.IsNegotiated ? item.DailyRent : item.OriginalDailyRent);
+
+    <div class="modal fade" id="negotiateModal_@item.BookingId" tabindex="-1" aria-labelledby="negotiateModalLabel_@item.BookingId" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0" style="background-color: #1a1d27; border: 1px solid rgba(255, 255, 255, 0.1) !important; color: #cbd5e1;">
+                <form method="post" asp-controller="Booking" asp-action="NegotiatePrice">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="bookingId" value="@item.BookingId" />
+
+                    <div class="modal-header border-secondary border-opacity-25 px-4 pt-4 pb-2">
+                        <h5 class="modal-title fw-bold text-white" id="negotiateModalLabel_@item.BookingId">
+                            <i class="fa-solid fa-handshake text-primary me-2"></i>
+                            @(item.IsOwner ? "Set Negotiated Price" : "Give Negotiated Price")
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+
+                    <div class="modal-body px-4 py-3">
+                        <p class="small text-muted mb-3">
+                            @(item.IsOwner
+                                ? "As the owner, setting a negotiated price applies it directly to this specific lease agreement. Other marketplace visitors will still see your original public rate."
+                                : "Submit your negotiated daily rental rate before paying the escrow deposit. Once agreed, this rate will apply to your lease agreement.")
+                        </p>
+
+                        <!-- Asset & Schedule Summary -->
+                        <div class="p-3 rounded-3 mb-3 small" style="background-color: #1e2130; border: 1px solid rgba(255, 255, 255, 0.06);">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span class="text-muted">Asset:</span>
+                                <strong class="text-white">@item.AssetTitle</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-1">
+                                <span class="text-muted">Lease Duration:</span>
+                                <span class="text-white">@item.TotalDays @(item.TotalDays == 1 ? "day" : "days")</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-1">
+                                <span class="text-muted">Original Rate:</span>
+                                <span class="text-white">₹@item.OriginalDailyRent.ToString("N0") / day (Total: ₹@item.OriginalTotalRent.ToString("N0"))</span>
+                            </div>
+                            @if (item.IsNegotiated)
+                            {
+                                <div class="d-flex justify-content-between">
+                                    <span class="text-muted">Current Negotiated:</span>
+                                    <span class="text-success fw-bold">₹@item.DailyRent.ToString("N0") / day (Total: ₹@item.TotalRent.ToString("N0"))</span>
+                                </div>
+                            }
+                        </div>
+
+                        <!-- Price Input -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold text-white">
+                                <i class="fa-solid fa-tag me-1 text-primary"></i> Negotiated Daily Rate (₹ / day)
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-dark border-secondary border-opacity-25 text-muted">₹</span>
+                                <input type="number" name="negotiatedDailyRent" id="rateInput_@item.BookingId"
+                                       class="form-control rounded-end text-white fw-bold fs-5"
+                                       style="background-color: #1e2130; border-color: rgba(255,255,255,0.15);"
+                                       value="@((int)currentDefaultRate)"
+                                       min="1" step="10" required
+                                       oninput="updateNegotiatePreview('@item.BookingId', @item.TotalDays, @item.OriginalDailyRent)" />
+                            </div>
+                            <small class="text-muted">Original listing price is ₹@item.OriginalDailyRent.ToString("N0") per day.</small>
+                        </div>
+
+                        <!-- Live Calculation Preview -->
+                        <div class="p-3 rounded-3 mb-3 border border-secondary border-opacity-25 small" style="background: rgba(37, 99, 235, 0.06);">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span class="text-muted">Calculated Total Rent:</span>
+                                <strong class="text-white" id="totalPreview_@item.BookingId">₹@((currentDefaultRate * item.TotalDays).ToString("N0"))</strong>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span class="text-muted">Difference vs Original:</span>
+                                <span id="diffPreview_@item.BookingId" class="fw-semibold">Calculating...</span>
+                            </div>
+                        </div>
+
+                        <!-- Notes / Justification -->
+                        <div class="mb-2">
+                            <label class="form-label small fw-semibold text-white">Optional Note or Message</label>
+                            <textarea name="notes" class="form-control" rows="2"
+                                      placeholder="e.g. As discussed for 7-day extended deployment, or bulk project discount..."
+                                      style="background-color: #1e2130; border-color: rgba(255,255,255,0.15); color: #e2e8f0;">@item.NegotiationNotes</textarea>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer border-secondary border-opacity-25 px-4 pb-4 pt-2">
+                        <button type="button" class="btn btn-outline-secondary rounded-pill px-3" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary rounded-pill px-4 fw-semibold shadow-sm">
+                            <i class="fa-solid fa-check me-1"></i>
+                            @(item.IsOwner ? "Apply Negotiated Rate" : "Submit Negotiated Price")
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <script>
+        function updateNegotiatePreview(bookingId, days, originalDailyRent) {
+            const input = document.getElementById('rateInput_' + bookingId);
+            const totalPreview = document.getElementById('totalPreview_' + bookingId);
+            const diffPreview = document.getElementById('diffPreview_' + bookingId);
+
+            if (!input || !totalPreview || !diffPreview) return;
+
+            const rate = parseFloat(input.value) || 0;
+            const newTotal = rate * days;
+            const originalTotal = originalDailyRent * days;
+            const diff = newTotal - originalTotal;
+
+            totalPreview.textContent = '₹' + Math.round(newTotal).toLocaleString('en-IN');
+
+            if (diff < 0) {
+                diffPreview.textContent = '₹' + Math.abs(Math.round(diff)).toLocaleString('en-IN') + ' discount';
+                diffPreview.className = 'text-success fw-semibold';
+            } else if (diff > 0) {
+                diffPreview.textContent = '+₹' + Math.round(diff).toLocaleString('en-IN') + ' premium';
+                diffPreview.className = 'text-warning fw-semibold';
+            } else {
+                diffPreview.textContent = 'Same as original rate';
+                diffPreview.className = 'text-muted';
+            }
+        }
+
+        // Initialize preview on page load for all modals
+        document.addEventListener('DOMContentLoaded', function () {
+            @foreach (var item in allEligibleBookings)
+            {
+                <text>
+                updateNegotiatePreview('@item.BookingId', @item.TotalDays, @item.OriginalDailyRent);
+                </text>
+            }
+        });
+    </script>
+}

@@ -29,16 +29,35 @@
     <!-- Page Header -->
     <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
         <div>
-            <div class="d-flex align-items-center gap-2 mb-1">
-                <span class="badge bg-warning bg-opacity-25 text-warning border border-warning border-opacity-25 rounded-pill px-3 py-1 fw-semibold">
-                    <i class="fa-solid fa-shield-halved me-1"></i> Upfront Escrow Security Deposit
-                </span>
+            <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                @if (Model.Status == BookingStatus.Approved)
+                {
+                    <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25 rounded-pill px-3 py-1 fw-semibold">
+                        <i class="fa-solid fa-circle-check me-1"></i> Lease Request Approved
+                    </span>
+                }
+                else
+                {
+                    <span class="badge bg-warning bg-opacity-25 text-warning border border-warning border-opacity-25 rounded-pill px-3 py-1 fw-semibold">
+                        <i class="fa-solid fa-clock me-1"></i> Awaiting Owner Approval
+                    </span>
+                }
+                @if (Model.IsNegotiated)
+                {
+                    <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25 rounded-pill px-3 py-1 fw-semibold">
+                        <i class="fa-solid fa-handshake me-1"></i> Negotiated Price Active
+                    </span>
+                }
                 <span class="badge bg-secondary bg-opacity-25 text-white-50 rounded-pill px-3 py-1">
                     Booking #@Model.BookingId.Substring(Math.Max(0, Model.BookingId.Length - 6))
                 </span>
             </div>
             <h2 class="fw-bold text-white mb-0">Secure Your Equipment Lease</h2>
-            <p class="text-muted mb-0">Pay the refundable security deposit to finalize your request for owner approval.</p>
+            <p class="text-muted mb-0">
+                @(Model.Status == BookingStatus.Approved
+                    ? "Your lease request has been approved by the owner! You can negotiate the price or pay the escrow security deposit to activate your lease."
+                    : "Pay the refundable security deposit into escrow to finalize your lease, or negotiate the rental price with the owner.")
+            </p>
         </div>
         <a asp-action="MyBookings" class="btn btn-outline-secondary rounded-pill px-4">
             <i class="fa-solid fa-arrow-left me-1"></i> Back to My Leases
@@ -78,13 +97,31 @@
                         <span><i class="fa-solid fa-clock me-1"></i> Total Duration:</span>
                         <span class="text-white fw-semibold">@Model.TotalDays @(Model.TotalDays == 1 ? "day" : "days")</span>
                     </div>
-                    <div class="d-flex justify-content-between small text-muted mb-1.5">
+                    <div class="d-flex justify-content-between small text-muted mb-1.5 align-items-center">
                         <span><i class="fa-solid fa-tag me-1"></i> Daily Rent:</span>
-                        <span class="text-white fw-semibold">₹@Model.DailyRent.ToString("N0") / day</span>
+                        @if (Model.IsNegotiated)
+                        {
+                            <div class="text-end">
+                                <span class="text-success fw-bold">₹@Model.DailyRent.ToString("N0") / day</span>
+                                <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25 ms-1" style="font-size:0.7rem;">Negotiated Rate</span>
+                                <span class="text-muted text-decoration-line-through small d-block">Original: ₹@Model.OriginalDailyRent.ToString("N0") / day</span>
+                            </div>
+                        }
+                        else
+                        {
+                            <span class="text-white fw-semibold">₹@Model.DailyRent.ToString("N0") / day</span>
+                        }
                     </div>
                     <div class="d-flex justify-content-between small text-muted border-top border-secondary border-opacity-25 pt-2 mt-2">
                         <span>Total Rental Value:</span>
-                        <span class="text-white fw-bold">₹@Model.TotalRent.ToString("N0")</span>
+                        @if (Model.IsNegotiated)
+                        {
+                            <span class="text-white fw-bold">₹@Model.TotalRent.ToString("N0") @(Model.OriginalTotalRent > Model.TotalRent ? $"(Saved ₹{(Model.OriginalTotalRent - Model.TotalRent):N0})" : "")</span>
+                        }
+                        else
+                        {
+                            <span class="text-white fw-bold">₹@Model.TotalRent.ToString("N0")</span>
+                        }
                     </div>
                 </div>
 
@@ -100,8 +137,157 @@
             </div>
         </div>
 
-        <!-- RIGHT COLUMN: DEPOSIT PAYMENT ACTION -->
+        <!-- RIGHT COLUMN: NEGOTIATION & DEPOSIT PAYMENT ACTION -->
         <div class="col-lg-7">
+
+            <!-- 0. NEGOTIATE PRICE BEFORE PAYING DEPOSIT CARD -->
+            <div class="card border-0 rounded-4 shadow-sm p-4 mb-4" style="background: linear-gradient(135deg, #182033 0%, #111827 100%); border: 1px solid rgba(56, 189, 248, 0.3) !important;">
+                @if (Model.NegotiationStatus == "Offered" && Model.ProposedNegotiatedDailyRent.HasValue)
+                {
+                    if (Model.NegotiationOfferedByUserId != Model.OwnerId)
+                    {
+                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-info text-dark rounded-pill px-3 py-1 fw-bold">
+                                    <i class="fa-solid fa-hourglass-half me-1"></i> Price Offer Pending Owner Review
+                                </span>
+                                <span class="text-white fw-bold">₹@Model.ProposedNegotiatedDailyRent.Value.ToString("N0") / day</span>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-outline-info btn-sm rounded-pill px-3" data-bs-toggle="collapse" data-bs-target="#negotiateCollapse">
+                                    <i class="fa-solid fa-pen me-1"></i> Update Offer
+                                </button>
+                                <a asp-controller="Chat" asp-action="Index" asp-route-recipientId="@Model.OwnerId" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                                    <i class="fa-regular fa-comments me-1"></i> Chat
+                                </a>
+                            </div>
+                        </div>
+                        <p class="text-muted small mb-0">
+                            You proposed <strong>₹@Model.ProposedNegotiatedDailyRent.Value.ToString("N0")/day</strong> (Est. Total: ₹@Model.ProposedNegotiatedTotalRent?.ToString("N0"), Original: ₹@Model.OriginalDailyRent.ToString("N0")/day).
+                            The owner has been notified. You can update your offer, discuss in chat, or proceed to pay deposit below to secure your booking.
+                            @if (!string.IsNullOrEmpty(Model.NegotiationNotes))
+                            {
+                                <span class="d-block text-white-50 mt-1 fst-italic">"Notes: @Model.NegotiationNotes"</span>
+                            }
+                        </p>
+                    }
+                    else
+                    {
+                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                            <div>
+                                <span class="badge bg-warning text-dark rounded-pill px-3 py-1 fw-bold">
+                                    <i class="fa-solid fa-tag me-1"></i> Owner Counter-Offer
+                                </span>
+                                <span class="text-white fw-bold ms-2">₹@Model.ProposedNegotiatedDailyRent.Value.ToString("N0") / day</span>
+                                <span class="text-white-50 small ms-1">(Total: ₹@Model.ProposedNegotiatedTotalRent?.ToString("N0"))</span>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <form method="post" asp-action="AcceptNegotiation" asp-route-bookingId="@Model.BookingId" asp-route-returnUrl="paydeposit" class="d-inline">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn btn-success btn-sm rounded-pill px-3 fw-bold">
+                                        <i class="fa-solid fa-check me-1"></i> Accept Offer
+                                    </button>
+                                </form>
+                                <form method="post" asp-action="DeclineNegotiation" asp-route-bookingId="@Model.BookingId" asp-route-returnUrl="paydeposit" class="d-inline">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn btn-outline-secondary btn-sm rounded-pill px-3">Decline</button>
+                                </form>
+                                <button type="button" class="btn btn-outline-info btn-sm rounded-pill px-3" data-bs-toggle="collapse" data-bs-target="#negotiateCollapse">Counter</button>
+                            </div>
+                        </div>
+                        @if (!string.IsNullOrEmpty(Model.NegotiationNotes))
+                        {
+                            <p class="text-white-50 small mb-0 fst-italic">"Owner Note: @Model.NegotiationNotes"</p>
+                        }
+                    }
+                }
+                else if (Model.IsNegotiated)
+                {
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <span class="badge bg-success rounded-pill px-3 py-1 fw-bold">
+                                <i class="fa-solid fa-handshake me-1"></i> Negotiated Price Active
+                            </span>
+                            <span class="text-white fw-bold">₹@Model.DailyRent.ToString("N0") / day</span>
+                            <span class="text-muted text-decoration-line-through small">Original: ₹@Model.OriginalDailyRent.ToString("N0")</span>
+                            @if (Model.OriginalTotalRent > Model.TotalRent)
+                            {
+                                <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25">
+                                    Saved ₹@((Model.OriginalTotalRent - Model.TotalRent).ToString("N0"))
+                                </span>
+                            }
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-outline-light btn-sm rounded-pill px-3" data-bs-toggle="collapse" data-bs-target="#negotiateCollapse">
+                                <i class="fa-solid fa-rotate me-1"></i> Re-negotiate
+                            </button>
+                            <a asp-controller="Chat" asp-action="Index" asp-route-recipientId="@Model.OwnerId" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                                <i class="fa-regular fa-comments me-1"></i> Chat
+                            </a>
+                        </div>
+                    </div>
+                    <p class="text-muted small mb-0">The negotiated rate has been confirmed and applied to this lease agreement.</p>
+                }
+                else
+                {
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                        <div>
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <span class="badge bg-info bg-opacity-25 text-info border border-info border-opacity-25 rounded-pill px-2.5 py-0.5 fw-semibold small">
+                                    <i class="fa-solid fa-handshake me-1"></i> Price Negotiation
+                                </span>
+                                <span class="text-white-50 small">Current Rate: ₹@Model.DailyRent.ToString("N0")/day</span>
+                            </div>
+                            <h5 class="fw-bold text-white mb-1">Negotiate Price Before Paying Deposit?</h5>
+                            <p class="text-muted small mb-0">
+                                Propose a negotiated daily rate to the owner. Once agreed, your rental total will update before final settlement.
+                            </p>
+                        </div>
+                        <div class="d-flex gap-2 flex-shrink-0">
+                            <button type="button" class="btn btn-outline-info rounded-pill px-3 py-1.5 fw-semibold" data-bs-toggle="collapse" data-bs-target="#negotiateCollapse">
+                                <i class="fa-solid fa-handshake me-1"></i> Give Negotiated Price
+                            </button>
+                            <a asp-controller="Chat" asp-action="Index" asp-route-recipientId="@Model.OwnerId" class="btn btn-outline-secondary rounded-pill px-3 py-1.5">
+                                <i class="fa-regular fa-comments me-1"></i> Chat
+                            </a>
+                        </div>
+                    </div>
+                }
+
+                <!-- Collapsible Negotiation Form -->
+                <div class="collapse mt-3" id="negotiateCollapse">
+                    <div class="p-3 rounded-3" style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255, 255, 255, 0.1);">
+                        <form method="post" asp-action="NegotiatePrice" asp-route-bookingId="@Model.BookingId" asp-route-returnUrl="paydeposit">
+                            @Html.AntiForgeryToken()
+                            <div class="row g-3 align-items-end">
+                                <div class="col-md-5">
+                                    <label class="form-label text-muted small fw-semibold">Proposed Daily Rent (₹/day)</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-dark border-secondary text-white">₹</span>
+                                        <input type="number" name="negotiatedDailyRent" id="depositNegotiatedRateInput" class="form-control text-white fw-bold"
+                                               value="@(Model.ProposedNegotiatedDailyRent ?? Model.DailyRent)"
+                                               min="1" max="100000000" required oninput="calcDepositNegotiation()" />
+                                        <span class="input-group-text bg-dark border-secondary text-muted small">/ day</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-7">
+                                    <label class="form-label text-muted small fw-semibold">Note / Message to Owner (Optional)</label>
+                                    <input type="text" name="notes" class="form-control" placeholder="e.g. Requesting ₹X/day for @Model.TotalDays days usage" />
+                                </div>
+                            </div>
+                            <div id="depositNegotiatePreview" class="small mt-2 pt-2 border-top border-secondary border-opacity-25 text-info">
+                            </div>
+                            <div class="d-flex justify-content-end gap-2 mt-3">
+                                <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3" data-bs-toggle="collapse" data-bs-target="#negotiateCollapse">Close</button>
+                                <button type="submit" class="btn btn-info btn-sm rounded-pill px-4 fw-bold">
+                                    <i class="fa-solid fa-paper-plane me-1"></i> Send Offer to Owner
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
             <form method="post" asp-action="PayDeposit" id="payDepositForm">
                 @Html.AntiForgeryToken()
                 <input type="hidden" asp-for="BookingId" />
@@ -485,4 +671,36 @@
 
         form.submit();
     }
+
+    const totalDays = @Model.TotalDays;
+    const baseDailyRent = @(Model.OriginalDailyRent > 0 ? Model.OriginalDailyRent : Model.DailyRent);
+
+    function calcDepositNegotiation() {
+        const input = document.getElementById('depositNegotiatedRateInput');
+        const preview = document.getElementById('depositNegotiatePreview');
+        if (!input || !preview) return;
+
+        const val = parseFloat(input.value);
+        if (isNaN(val) || val <= 0) {
+            preview.innerHTML = '';
+            return;
+        }
+
+        const newTotalRent = val * totalDays;
+        const originalTotal = baseDailyRent * totalDays;
+
+        if (val < baseDailyRent) {
+            const savings = originalTotal - newTotalRent;
+            preview.innerHTML = `<i class="fa-solid fa-calculator me-1"></i> Proposed Total Rent: <strong>₹${newTotalRent.toLocaleString('en-IN')}</strong> for ${totalDays} ${totalDays === 1 ? 'day' : 'days'} • <strong class="text-success">You Save: ₹${savings.toLocaleString('en-IN')}</strong>`;
+        } else if (val === baseDailyRent) {
+            preview.innerHTML = `<i class="fa-solid fa-circle-info me-1"></i> Matches original listing price of ₹${baseDailyRent.toLocaleString('en-IN')}/day (Total: ₹${originalTotal.toLocaleString('en-IN')}).`;
+        } else {
+            const extra = newTotalRent - originalTotal;
+            preview.innerHTML = `<i class="fa-solid fa-arrow-up me-1"></i> Premium offer: <strong>+₹${extra.toLocaleString('en-IN')}</strong> over base listing rate (Total: ₹${newTotalRent.toLocaleString('en-IN')}).`;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        calcDepositNegotiation();
+    });
 </script>

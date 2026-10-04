@@ -1,28 +1,225 @@
 @page
 @model IndexModel
 @{
-    ViewData["Title"] = "Profile";
+    ViewData["Title"] = "Profile Information";
     ViewData["ActivePage"] = ManageNavPages.Index;
 }
 
-<h3>@ViewData["Title"]</h3>
-<partial name="_StatusMessage" for="StatusMessage" />
-<div class="row">
-    <div class="col-md-6">
-        <form id="profile-form" method="post">
-            <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
-            <div class="form-floating mb-3">
-                <input asp-for="Username" class="form-control" placeholder="Please choose your username." disabled />
-                <label asp-for="Username" class="form-label"></label>
+<style>
+    .manage-section-card {
+        background: #1e2130;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 24px;
+    }
+
+    .manage-header-card {
+        background: linear-gradient(135deg, rgba(37, 99, 235, 0.15), rgba(30, 33, 48, 0.8));
+        border: 1px solid rgba(59, 130, 246, 0.25);
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 28px;
+    }
+
+    .manage-avatar {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #2563eb, #60a5fa);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.8rem;
+        font-weight: 700;
+        box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
+        flex-shrink: 0;
+    }
+
+    .form-label-custom {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #94a3b8;
+        margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .input-icon-wrapper {
+        position: relative;
+    }
+
+    .input-icon-wrapper .input-icon {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #64748b;
+        font-size: 0.95rem;
+        pointer-events: none;
+        transition: color 0.2s;
+    }
+
+    .input-icon-wrapper .form-control {
+        padding-left: 42px;
+        background-color: #141721;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        color: #f1f5f9;
+        font-size: 0.95rem;
+        padding-top: 11px;
+        padding-bottom: 11px;
+        transition: all 0.2s;
+    }
+
+    .input-icon-wrapper .form-control:focus {
+        border-color: #3b82f6;
+        background-color: #1a1e2d;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        color: #ffffff;
+    }
+
+    .input-icon-wrapper .form-control:focus + .input-icon,
+    .input-icon-wrapper .form-control:focus ~ .input-icon {
+        color: #60a5fa;
+    }
+
+    .readonly-field {
+        background-color: rgba(255, 255, 255, 0.03) !important;
+        border-color: rgba(255, 255, 255, 0.06) !important;
+        color: #94a3b8 !important;
+        cursor: not-allowed;
+    }
+
+    .field-hint {
+        font-size: 0.78rem;
+        color: #64748b;
+        margin-top: 4px;
+    }
+</style>
+
+<div class="profile-manage-container">
+    <partial name="_StatusMessage" for="StatusMessage" />
+
+    <!-- User Header Preview -->
+    <div class="manage-header-card d-flex flex-column flex-sm-row align-items-center gap-3">
+        <div class="manage-avatar">
+            @(!string.IsNullOrEmpty(Model.Input?.FullName) ? Model.Input.FullName.Substring(0, 1).ToUpper() : (!string.IsNullOrEmpty(Model.Username) ? Model.Username.Substring(0, 1).ToUpper() : "U"))
+        </div>
+        <div class="flex-grow-1 text-center text-sm-start">
+            <h4 class="fw-bold text-white mb-1">
+                @(!string.IsNullOrEmpty(Model.Input?.FullName) ? Model.Input.FullName : (Model.Username ?? "My Account"))
+            </h4>
+            <div class="d-flex flex-wrap align-items-center justify-content-center justify-content-sm-start gap-2">
+                <span class="text-muted small">
+                    <i class="fas fa-envelope me-1 text-primary"></i> @Model.Email
+                </span>
+                <span class="text-secondary small">&bull;</span>
+                <span class="text-muted small">
+                    <i class="fas fa-calendar-alt me-1 text-primary"></i> Member since @(Model.CreatedAt == default ? "recently" : Model.CreatedAt.ToString("MMM yyyy"))
+                </span>
             </div>
-            <div class="form-floating mb-3">
-                <input asp-for="Input.PhoneNumber" class="form-control" placeholder="Please enter your phone number."/>
-                <label asp-for="Input.PhoneNumber" class="form-label"></label>
-                <span asp-validation-for="Input.PhoneNumber" class="text-danger"></span>
-            </div>
-            <button id="update-profile-button" type="submit" class="w-100 btn btn-lg btn-primary">Save</button>
-        </form>
+        </div>
+        <div>
+            <a asp-controller="Profile" asp-action="Index" class="btn btn-outline-custom btn-sm">
+                <i class="fas fa-external-link-alt me-1"></i> View Profile
+            </a>
+        </div>
     </div>
+
+    <!-- Edit Profile Form -->
+    <form id="profile-form" method="post">
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small mb-3" role="alert"></div>
+
+        <!-- Personal Details Section -->
+        <div class="manage-section-card">
+            <h5 class="fw-bold text-white mb-3 d-flex align-items-center gap-2">
+                <i class="fas fa-id-card text-primary"></i> Personal Details
+            </h5>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label asp-for="Input.FullName" class="form-label-custom">
+                        <i class="fas fa-user"></i> Full Name <span class="text-danger">*</span>
+                    </label>
+                    <div class="input-icon-wrapper">
+                        <input asp-for="Input.FullName" class="form-control" placeholder="Enter your full name" />
+                        <i class="fas fa-user input-icon"></i>
+                    </div>
+                    <span asp-validation-for="Input.FullName" class="text-danger small"></span>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label-custom">
+                        <i class="fas fa-envelope"></i> Primary Email
+                    </label>
+                    <div class="input-icon-wrapper">
+                        <input value="@Model.Email" class="form-control readonly-field" readonly disabled />
+                        <i class="fas fa-envelope input-icon"></i>
+                    </div>
+                    <div class="field-hint">
+                        Manage your verified email from the <a asp-page="./Email" class="text-primary text-decoration-none">Email tab</a>.
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <label asp-for="Input.PhoneNumber" class="form-label-custom">
+                        <i class="fas fa-phone"></i> Phone Number
+                    </label>
+                    <div class="input-icon-wrapper">
+                        <input asp-for="Input.PhoneNumber" class="form-control" placeholder="+91 98765 43210" />
+                        <i class="fas fa-phone input-icon"></i>
+                    </div>
+                    <span asp-validation-for="Input.PhoneNumber" class="text-danger small"></span>
+                    <div class="field-hint">Used for lease pickup and delivery coordination.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Location Section -->
+        <div class="manage-section-card">
+            <h5 class="fw-bold text-white mb-3 d-flex align-items-center gap-2">
+                <i class="fas fa-map-marker-alt text-primary"></i> Location & Address
+            </h5>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label asp-for="Input.City" class="form-label-custom">
+                        <i class="fas fa-city"></i> City / Town
+                    </label>
+                    <div class="input-icon-wrapper">
+                        <input asp-for="Input.City" class="form-control" placeholder="e.g. Mumbai, Bengaluru, Delhi" />
+                        <i class="fas fa-city input-icon"></i>
+                    </div>
+                    <span asp-validation-for="Input.City" class="text-danger small"></span>
+                </div>
+
+                <div class="col-12">
+                    <label asp-for="Input.Address" class="form-label-custom">
+                        <i class="fas fa-home"></i> Street Address
+                    </label>
+                    <div class="input-icon-wrapper">
+                        <input asp-for="Input.Address" class="form-control" placeholder="House/Flat No., Street, Area, Landmark" />
+                        <i class="fas fa-map-pin input-icon"></i>
+                    </div>
+                    <span asp-validation-for="Input.Address" class="text-danger small"></span>
+                    <div class="field-hint">Your address is only shared with verified partners for confirmed bookings.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Submit & Actions -->
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 pt-2">
+            <button id="update-profile-button" type="submit" class="btn btn-primary-custom px-4 py-2.5">
+                <i class="fas fa-check me-2"></i> Save Changes
+            </button>
+            <a asp-controller="Profile" asp-action="Index" class="btn btn-outline-secondary rounded-pill px-4">
+                <i class="fas fa-arrow-left me-1"></i> Back to Profile
+            </a>
+        </div>
+    </form>
 </div>
 
 @section Scripts {

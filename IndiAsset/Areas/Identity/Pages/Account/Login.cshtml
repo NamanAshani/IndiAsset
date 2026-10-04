@@ -167,10 +167,17 @@
                 <label asp-for="Input.Password"
                        class="auth-label">Password</label>
 
-                <input asp-for="Input.Password"
-                       class="auth-input"
-                       autocomplete="current-password"
-                       placeholder="Enter your password" />
+                <div class="position-relative">
+                    <input asp-for="Input.Password"
+                           type="password"
+                           id="loginPassword"
+                           class="auth-input pe-5"
+                           autocomplete="current-password"
+                           placeholder="Enter your password" />
+                    <button type="button" class="btn btn-link position-absolute end-0 top-50 translate-middle-y text-muted text-decoration-none pe-3 border-0 bg-transparent" onclick="togglePasswordVisibility('loginPassword', this)" tabindex="-1" title="Toggle password visibility">
+                        <i class="far fa-eye"></i>
+                    </button>
+                </div>
 
                 <span asp-validation-for="Input.Password"
                       class="field-error"></span>
@@ -217,4 +224,19 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script>
+        function togglePasswordVisibility(inputId, btn) {
+            var input = document.getElementById(inputId);
+            var icon = btn.querySelector('i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+    </script>
 }

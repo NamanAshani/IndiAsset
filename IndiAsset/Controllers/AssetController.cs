@@ -63,9 +63,17 @@ namespace IndiAsset.Controllers
         {
             await EnsureSeededAsync();
 
+            var currentUserId = _userManager.GetUserId(User);
+
             var filterBuilder = Builders<Asset>.Filter;
             var filter = filterBuilder.Eq(a => a.IsDeleted, false) &
                          filterBuilder.Eq(a => a.IsApproved, true);
+
+            // The user should NOT be able to view or lease their own assets on browse
+            if (!string.IsNullOrEmpty(currentUserId))
+            {
+                filter &= filterBuilder.Ne(a => a.OwnerId, currentUserId);
+            }
 
             if (!string.IsNullOrWhiteSpace(q))
             {
@@ -120,8 +128,6 @@ namespace IndiAsset.Controllers
                     g => g.Key,
                     g => !string.IsNullOrWhiteSpace(g.First().FullName) ? g.First().FullName : (g.First().Email ?? "Asset Owner")
                 );
-
-            var currentUserId = _userManager.GetUserId(User);
 
             var cardViewModels = assets.Select(asset =>
             {
@@ -234,14 +240,19 @@ namespace IndiAsset.Controllers
             var defaultEndDate = defaultStartDate.AddDays(3);
 
             var ownerPendingBookings = new List<BookingItemViewModel>();
+            var ownerActiveBookings = new List<BookingItemViewModel>();
+            var ownerRecentHistory = new List<BookingItemViewModel>();
+            int totalBookingsCount = 0;
+            decimal totalRevenueEarned = 0;
+
             if (isOwner && !string.IsNullOrEmpty(asset.Id))
             {
-                var bookingsForAsset = await _mongoDbService.Bookings
-                    .Find(b => b.AssetId == asset.Id && b.Status == BookingStatus.Pending)
+                var allBookingsForAsset = await _mongoDbService.Bookings
+                    .Find(b => b.AssetId == asset.Id && b.Status != BookingStatus.Cancelled)
                     .SortByDescending(b => b.CreatedAt)
                     .ToListAsync();
 
-                var renterIds = bookingsForAsset.Select(b => b.RenterId).Distinct().ToList();
+                var renterIds = allBookingsForAsset.Select(b => b.RenterId).Distinct().ToList();
                 var renters = await _mongoDbService.Bookings.Database
                     .GetCollection<ApplicationUser>("Users")
                     .Find(u => renterIds.Contains(u.Id))
@@ -255,7 +266,7 @@ namespace IndiAsset.Controllers
                         g => !string.IsNullOrWhiteSpace(g.First().FullName) ? g.First().FullName : (g.First().Email ?? "Renter")
                     );
 
-                ownerPendingBookings = bookingsForAsset.Select(b => new BookingItemViewModel
+                var allViewModels = allBookingsForAsset.Select(b => new BookingItemViewModel
                 {
                     BookingId = b.Id ?? string.Empty,
                     AssetId = b.AssetId,
@@ -267,15 +278,34 @@ namespace IndiAsset.Controllers
                     EndDate = b.EndDate,
                     DailyRent = b.DailyRent,
                     TotalRent = b.TotalRent,
+                    OriginalDailyRent = b.OriginalDailyRent > 0 ? b.OriginalDailyRent : b.DailyRent,
+                    OriginalTotalRent = b.OriginalTotalRent > 0 ? b.OriginalTotalRent : (b.TotalRent > 0 ? b.TotalRent : (b.TotalDays * b.DailyRent)),
+                    IsNegotiated = b.IsNegotiated,
+                    NegotiatedDailyRent = b.NegotiatedDailyRent,
+                    ProposedNegotiatedDailyRent = b.ProposedNegotiatedDailyRent,
+                    NegotiationOfferedByUserId = b.NegotiationOfferedByUserId,
+                    NegotiationStatus = b.NegotiationStatus,
+                    NegotiationNotes = b.NegotiationNotes,
+                    NegotiatedAt = b.NegotiatedAt,
+                    IsPriceAgreed = b.IsPriceAgreed || (b.OwnerId == b.RenterId) || b.Status == BookingStatus.Active || b.Status == BookingStatus.Completed,
+                    PriceAgreedAt = b.PriceAgreedAt,
+                    AgreedDailyRent = b.AgreedDailyRent,
+                    PriceAgreedByUserId = b.PriceAgreedByUserId,
                     SecurityDeposit = b.SecurityDeposit,
                     TotalAmount = b.TotalAmount,
                     Status = b.Status,
                     CreatedAt = b.CreatedAt,
                     IsOwner = true,
-                    IsSecurityDepositPaid = b.IsSecurityDepositPaid || b.SecurityDeposit <= 0 || b.Status == BookingStatus.Active || b.Status == BookingStatus.Approved || b.Status == BookingStatus.Completed,
+                    IsSecurityDepositPaid = b.IsSecurityDepositPaid || b.SecurityDeposit <= 0 || b.SecurityDepositPaidAt.HasValue || b.Status == BookingStatus.Active || b.Status == BookingStatus.Completed,
                     SecurityDepositPaidAmount = b.SecurityDepositPaidAmount > 0 ? b.SecurityDepositPaidAmount : (b.IsSecurityDepositPaid ? b.SecurityDeposit : 0),
                     SecurityDepositPaidAt = b.SecurityDepositPaidAt
                 }).ToList();
+
+                ownerPendingBookings = allViewModels.Where(b => b.Status == BookingStatus.Pending).ToList();
+                ownerActiveBookings = allViewModels.Where(b => b.Status == BookingStatus.Active).ToList();
+                ownerRecentHistory = allViewModels.Where(b => b.Status == BookingStatus.Completed || b.Status == BookingStatus.Active).ToList();
+                totalBookingsCount = allViewModels.Count(b => b.Status == BookingStatus.Active || b.Status == BookingStatus.Completed);
+                totalRevenueEarned = allViewModels.Where(b => b.Status == BookingStatus.Active || b.Status == BookingStatus.Completed).Sum(b => b.TotalRent);
             }
 
             var viewModel = new AssetDetailsViewModel
@@ -288,6 +318,10 @@ namespace IndiAsset.Controllers
                 ActiveBookingsCount = availability.ActiveBookingsCount,
                 ConfirmedBookings = availability.ConfirmedBookings,
                 OwnerPendingBookings = ownerPendingBookings,
+                OwnerActiveBookings = ownerActiveBookings,
+                OwnerRecentHistory = ownerRecentHistory,
+                TotalBookingsCount = totalBookingsCount,
+                TotalRevenueEarned = totalRevenueEarned,
                 IsOwner = isOwner,
                 CanBook = !isOwner && User.Identity?.IsAuthenticated == true,
                 BookingForm = new BookingCreateViewModel
@@ -301,6 +335,7 @@ namespace IndiAsset.Controllers
 
             return View(viewModel);
         }
+
 
         // ======================================================
         // CREATE LISTING (OWNER)
@@ -590,9 +625,9 @@ namespace IndiAsset.Controllers
                 };
             }).ToList();
 
-            // Fetch incoming bookings for this owner
+            // Fetch incoming bookings for this owner (excluding cancelled)
             var ownerBookings = await _mongoDbService.Bookings
-                .Find(b => b.OwnerId == currentUserId)
+                .Find(b => b.OwnerId == currentUserId && b.Status != BookingStatus.Cancelled)
                 .SortByDescending(b => b.CreatedAt)
                 .ToListAsync();
 
@@ -624,12 +659,25 @@ namespace IndiAsset.Controllers
                     EndDate = b.EndDate,
                     DailyRent = b.DailyRent,
                     TotalRent = b.TotalRent,
+                    OriginalDailyRent = b.OriginalDailyRent > 0 ? b.OriginalDailyRent : b.DailyRent,
+                    OriginalTotalRent = b.OriginalTotalRent > 0 ? b.OriginalTotalRent : (b.TotalRent > 0 ? b.TotalRent : (b.TotalDays * b.DailyRent)),
+                    IsNegotiated = b.IsNegotiated,
+                    NegotiatedDailyRent = b.NegotiatedDailyRent,
+                    ProposedNegotiatedDailyRent = b.ProposedNegotiatedDailyRent,
+                    NegotiationOfferedByUserId = b.NegotiationOfferedByUserId,
+                    NegotiationStatus = b.NegotiationStatus,
+                    NegotiationNotes = b.NegotiationNotes,
+                    NegotiatedAt = b.NegotiatedAt,
+                    IsPriceAgreed = b.IsPriceAgreed || (b.OwnerId == b.RenterId) || b.Status == BookingStatus.Active || b.Status == BookingStatus.Completed,
+                    PriceAgreedAt = b.PriceAgreedAt,
+                    AgreedDailyRent = b.AgreedDailyRent,
+                    PriceAgreedByUserId = b.PriceAgreedByUserId,
                     SecurityDeposit = b.SecurityDeposit,
                     TotalAmount = b.TotalAmount,
                     Status = b.Status,
                     CreatedAt = b.CreatedAt,
                     IsOwner = true,
-                    IsSecurityDepositPaid = b.IsSecurityDepositPaid || b.SecurityDeposit <= 0 || b.Status == BookingStatus.Active || b.Status == BookingStatus.Approved || b.Status == BookingStatus.Completed,
+                    IsSecurityDepositPaid = b.IsSecurityDepositPaid || b.SecurityDeposit <= 0 || b.SecurityDepositPaidAt.HasValue || b.Status == BookingStatus.Active || b.Status == BookingStatus.Completed,
                     SecurityDepositPaidAmount = b.SecurityDepositPaidAmount > 0 ? b.SecurityDepositPaidAmount : (b.IsSecurityDepositPaid ? b.SecurityDeposit : 0),
                     SecurityDepositPaidAt = b.SecurityDepositPaidAt
                 }).ToList();
@@ -648,12 +696,25 @@ namespace IndiAsset.Controllers
                     EndDate = b.EndDate,
                     DailyRent = b.DailyRent,
                     TotalRent = b.TotalRent,
+                    OriginalDailyRent = b.OriginalDailyRent > 0 ? b.OriginalDailyRent : b.DailyRent,
+                    OriginalTotalRent = b.OriginalTotalRent > 0 ? b.OriginalTotalRent : (b.TotalRent > 0 ? b.TotalRent : (b.TotalDays * b.DailyRent)),
+                    IsNegotiated = b.IsNegotiated,
+                    NegotiatedDailyRent = b.NegotiatedDailyRent,
+                    ProposedNegotiatedDailyRent = b.ProposedNegotiatedDailyRent,
+                    NegotiationOfferedByUserId = b.NegotiationOfferedByUserId,
+                    NegotiationStatus = b.NegotiationStatus,
+                    NegotiationNotes = b.NegotiationNotes,
+                    NegotiatedAt = b.NegotiatedAt,
+                    IsPriceAgreed = b.IsPriceAgreed || (b.OwnerId == b.RenterId) || b.Status == BookingStatus.Active || b.Status == BookingStatus.Completed,
+                    PriceAgreedAt = b.PriceAgreedAt,
+                    AgreedDailyRent = b.AgreedDailyRent,
+                    PriceAgreedByUserId = b.PriceAgreedByUserId,
                     SecurityDeposit = b.SecurityDeposit,
                     TotalAmount = b.TotalAmount,
                     Status = b.Status,
                     CreatedAt = b.CreatedAt,
                     IsOwner = true,
-                    IsSecurityDepositPaid = b.IsSecurityDepositPaid || b.SecurityDeposit <= 0 || b.Status == BookingStatus.Active || b.Status == BookingStatus.Approved || b.Status == BookingStatus.Completed,
+                    IsSecurityDepositPaid = b.IsSecurityDepositPaid || b.SecurityDeposit <= 0 || b.SecurityDepositPaidAt.HasValue || b.Status == BookingStatus.Active || b.Status == BookingStatus.Completed,
                     SecurityDepositPaidAmount = b.SecurityDepositPaidAmount > 0 ? b.SecurityDepositPaidAmount : (b.IsSecurityDepositPaid ? b.SecurityDeposit : 0),
                     SecurityDepositPaidAt = b.SecurityDepositPaidAt
                 }).ToList();
@@ -674,7 +735,7 @@ namespace IndiAsset.Controllers
         [Authorize]
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> ToggleAvailability(string id)
+        public async Task<IActionResult> ToggleAvailability(string id, string? returnUrl = null)
         {
             if (string.IsNullOrEmpty(id)) return NotFound();
 
@@ -686,15 +747,21 @@ namespace IndiAsset.Controllers
             if (asset == null) return NotFound();
             if (asset.OwnerId != currentUserId) return Forbid();
 
+            var newStatus = !asset.IsAvailable;
             var update = Builders<Asset>.Update
-                .Set(a => a.IsAvailable, !asset.IsAvailable)
+                .Set(a => a.IsAvailable, newStatus)
                 .Set(a => a.UpdatedAt, DateTime.UtcNow);
 
             await _mongoDbService.Assets.UpdateOneAsync(a => a.Id == id, update);
 
-            TempData["SuccessMessage"] = asset.IsAvailable
-                ? "Asset is now set to Paused / Unavailable."
-                : "Asset is now marked Available for leasing!";
+            TempData["SuccessMessage"] = newStatus
+                ? "Asset is now marked Available for leasing!"
+                : "Asset is now set to Paused / Unavailable.";
+
+            if (string.Equals(returnUrl, "details", StringComparison.OrdinalIgnoreCase))
+            {
+                return RedirectToAction(nameof(Details), new { id });
+            }
 
             return RedirectToAction(nameof(MyAssets));
         }

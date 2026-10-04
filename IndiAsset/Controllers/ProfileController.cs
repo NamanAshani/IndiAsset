@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using IndiAsset.Models;
@@ -19,5 +19,10 @@ public class ProfileController : Controller
         var user = await _userManager.GetUserAsync(User);
 
         return View(user);
+    }
+
+    public IActionResult Edit()
+    {
+        return RedirectToPage("/Account/Manage/Index", new { area = "Identity" });
     }
 }

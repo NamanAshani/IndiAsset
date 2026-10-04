@@ -58,12 +58,7 @@ namespace IndiAsset.Controllers
                 return RedirectToAction("Index", "Asset");
             }
 
-            // Cannot lease your own asset
-            if (asset.OwnerId == currentUser.Id)
-            {
-                TempData["ErrorMessage"] = "You cannot lease your own asset.";
-                return RedirectToAction("Details", "Asset", new { id = model.AssetId });
-            }
+            bool isSelfLease = (asset.OwnerId == currentUser.Id);
 
             // If user specified NumberOfDays and end date wasn't adjusted, synchronize EndDate
             if (model.NumberOfDays > 0)
@@ -112,46 +107,67 @@ namespace IndiAsset.Controllers
                 AssetImageUrl = asset.Images.FirstOrDefault(i => i.IsPrimary)?.Url ?? asset.Images.FirstOrDefault()?.Url,
                 RenterId = currentUser.Id,
                 OwnerId = asset.OwnerId,
-                StartDate = model.StartDate.Date,
-                EndDate = model.EndDate.Date,
+                StartDate = isSelfLease ? DateTime.UtcNow.Date : model.StartDate.Date,
+                EndDate = isSelfLease ? DateTime.UtcNow.Date.AddDays(days) : model.EndDate.Date,
                 TotalDays = days,
                 DailyRent = asset.DailyRent,
                 TotalRent = totalRent,
-                SecurityDeposit = securityDeposit,
-                TotalAmount = totalAmount,
-                Status = BookingStatus.Pending,
+                OriginalDailyRent = asset.DailyRent,
+                OriginalTotalRent = totalRent,
+                SecurityDeposit = isSelfLease ? 0 : securityDeposit,
+                TotalAmount = isSelfLease ? totalRent : totalAmount,
+                Status = isSelfLease ? BookingStatus.Approved : BookingStatus.Pending,
                 Notes = model.Notes?.Trim(),
-                IsSecurityDepositPaid = securityDeposit <= 0,
+                IsSecurityDepositPaid = isSelfLease || securityDeposit <= 0,
+                IsPriceAgreed = isSelfLease,
+                PriceAgreedAt = isSelfLease ? DateTime.UtcNow : (DateTime?)null,
+                AgreedDailyRent = isSelfLease ? asset.DailyRent : (decimal?)null,
                 CreatedAt = DateTime.UtcNow
             };
 
+            // If user offered a negotiated price when acquiring/requesting the lease
+            if (!isSelfLease && model.ProposeNegotiatedPrice && model.ProposedDailyRent.HasValue && model.ProposedDailyRent.Value > 0)
+            {
+                booking.ProposedNegotiatedDailyRent = model.ProposedDailyRent.Value;
+                booking.NegotiationStatus = "Offered";
+                booking.NegotiationOfferedByUserId = currentUser.Id;
+                booking.NegotiationNotes = model.NegotiationNotes?.Trim();
+                booking.NegotiatedAt = DateTime.UtcNow;
+            }
+
             await _mongoDbService.Bookings.InsertOneAsync(booking);
 
+            if (isSelfLease)
+            {
+                TempData["SuccessMessage"] = $"You have successfully leased your own asset '{asset.Title}' for {days} days ({booking.StartDate:dd MMM yyyy} to {booking.EndDate:dd MMM yyyy})! The asset is now reserved.";
+                return RedirectToAction(nameof(MyBookings), new { tab = "renter" });
+            }
+
             // Notify Asset Owner
-            var ownerNotice = securityDeposit > 0
-                ? $"{currentUser.FullName ?? currentUser.Email} requested to lease '{asset.Title}' for {days} days ({booking.StartDate:dd MMM yyyy} to {booking.EndDate:dd MMM yyyy}). Request is awaiting renter's escrow deposit payment of ₹{securityDeposit:N0}."
-                : $"{currentUser.FullName ?? currentUser.Email} requested to lease '{asset.Title}' for {days} days ({booking.StartDate:dd MMM yyyy} to {booking.EndDate:dd MMM yyyy}).";
+            var ownerNotice = (booking.NegotiationStatus == "Offered" && booking.ProposedNegotiatedDailyRent.HasValue)
+                ? $"{currentUser.FullName ?? currentUser.Email} requested to lease '{asset.Title}' for {days} days with a proposed negotiated rate of ₹{booking.ProposedNegotiatedDailyRent.Value:N0}/day (Original: ₹{asset.DailyRent:N0}/day)."
+                : $"{currentUser.FullName ?? currentUser.Email} requested to lease '{asset.Title}' for {days} days.";
 
             var notification = new Notification
             {
                 UserId = asset.OwnerId,
-                Title = "New Lease Request Received",
+                Title = (booking.NegotiationStatus == "Offered") ? "New Lease Request with Negotiated Price Offer! 🤝" : "New Lease Request Received",
                 Message = ownerNotice,
-                Type = "BookingRequest",
+                Type = (booking.NegotiationStatus == "Offered") ? "NegotiationProposed" : "BookingRequest",
                 TargetUrl = Url.Action("MyBookings", "Booking", new { tab = "owner" }) ?? "/Booking/MyBookings?tab=owner",
                 CreatedAt = DateTime.UtcNow,
                 IsRead = false
             };
             await _mongoDbService.Notifications.InsertOneAsync(notification);
 
-            if (securityDeposit > 0)
+            if (booking.NegotiationStatus == "Offered")
             {
-                TempData["SuccessMessage"] = $"Lease request created! Please complete payment of the refundable escrow security deposit (₹{securityDeposit:N0}) so the asset owner can approve your lease.";
-                return RedirectToAction(nameof(PayDeposit), new { id = booking.Id });
+                TempData["SuccessMessage"] = $"Lease request created with your proposed rate of ₹{booking.ProposedNegotiatedDailyRent:N0}/day! The price will be agreed upon with the owner before the security deposit is paid and the lease dates begin.";
+                return RedirectToAction(nameof(MyBookings), new { tab = "renter" });
             }
 
-            TempData["SuccessMessage"] = $"Lease request for '{asset.Title}' for {days} days submitted successfully! The owner has been notified.";
-            return RedirectToAction(nameof(MyBookings));
+            TempData["SuccessMessage"] = $"Lease request for '{asset.Title}' ({days} days) submitted! The rental price will be agreed upon between both parties before the security deposit is paid and the lease is approved.";
+            return RedirectToAction(nameof(MyBookings), new { tab = "renter" });
         }
 
         // ======================================================
@@ -163,15 +179,15 @@ namespace IndiAsset.Controllers
             var currentUserId = _userManager.GetUserId(User);
             if (string.IsNullOrEmpty(currentUserId)) return Challenge();
 
-            // Bookings where I am taking on lease (Renter)
+            // Bookings where I am taking on lease (Renter) - Exclude cancelled leases
             var renterBookings = await _mongoDbService.Bookings
-                .Find(b => b.RenterId == currentUserId)
+                .Find(b => b.RenterId == currentUserId && b.Status != BookingStatus.Cancelled)
                 .SortByDescending(b => b.CreatedAt)
                 .ToListAsync();
 
-            // Bookings where other users are leasing my assets (Owner)
+            // Bookings where other users are leasing my assets (Owner) - Exclude cancelled leases
             var ownerBookings = await _mongoDbService.Bookings
-                .Find(b => b.OwnerId == currentUserId)
+                .Find(b => b.OwnerId == currentUserId && b.Status != BookingStatus.Cancelled)
                 .SortByDescending(b => b.CreatedAt)
                 .ToListAsync();
 
@@ -247,11 +263,24 @@ namespace IndiAsset.Controllers
                     AssetImageUrl = b.AssetImageUrl,
                     Category = assetCategoryMap.GetValueOrDefault(b.AssetId, "Equipment"),
                     OtherUserId = b.OwnerId,
-                    OtherUserName = userMap.GetValueOrDefault(b.OwnerId, "Asset Owner"),
+                    OtherUserName = (b.OwnerId == b.RenterId) ? "You (Self-Lease)" : userMap.GetValueOrDefault(b.OwnerId, "Asset Owner"),
                     StartDate = b.StartDate,
                     EndDate = b.EndDate,
                     DailyRent = b.DailyRent,
                     TotalRent = b.TotalRent,
+                    OriginalDailyRent = b.OriginalDailyRent > 0 ? b.OriginalDailyRent : b.DailyRent,
+                    OriginalTotalRent = b.OriginalTotalRent > 0 ? b.OriginalTotalRent : (b.TotalRent > 0 ? b.TotalRent : (b.TotalDays * b.DailyRent)),
+                    IsNegotiated = b.IsNegotiated,
+                    NegotiatedDailyRent = b.NegotiatedDailyRent,
+                    ProposedNegotiatedDailyRent = b.ProposedNegotiatedDailyRent,
+                    NegotiationOfferedByUserId = b.NegotiationOfferedByUserId,
+                    NegotiationStatus = b.NegotiationStatus,
+                    NegotiationNotes = b.NegotiationNotes,
+                    NegotiatedAt = b.NegotiatedAt,
+                    IsPriceAgreed = b.IsPriceAgreed || (b.OwnerId == b.RenterId) || b.Status == BookingStatus.Active || b.Status == BookingStatus.Completed,
+                    PriceAgreedAt = b.PriceAgreedAt,
+                    AgreedDailyRent = b.AgreedDailyRent,
+                    PriceAgreedByUserId = b.PriceAgreedByUserId,
                     SecurityDeposit = b.SecurityDeposit,
                     TotalAmount = b.TotalAmount,
                     Status = b.Status,
@@ -259,7 +288,7 @@ namespace IndiAsset.Controllers
                     IsOwner = false,
                     HasReturnInspection = inspectionMap.ContainsKey(b.Id ?? string.Empty),
                     ReturnInspectionId = inspectionMap.GetValueOrDefault(b.Id ?? string.Empty),
-                    IsSecurityDepositPaid = b.IsSecurityDepositPaid || b.SecurityDeposit <= 0 || b.Status == BookingStatus.Active || b.Status == BookingStatus.Approved || b.Status == BookingStatus.Completed,
+                    IsSecurityDepositPaid = b.IsSecurityDepositPaid || b.SecurityDeposit <= 0 || b.SecurityDepositPaidAt.HasValue || b.Status == BookingStatus.Active || b.Status == BookingStatus.Completed,
                     SecurityDepositPaidAmount = b.SecurityDepositPaidAmount > 0 ? b.SecurityDepositPaidAmount : (b.IsSecurityDepositPaid ? b.SecurityDeposit : 0),
                     SecurityDepositPaidAt = b.SecurityDepositPaidAt
                 }).ToList(),
@@ -272,11 +301,24 @@ namespace IndiAsset.Controllers
                     AssetImageUrl = b.AssetImageUrl,
                     Category = assetCategoryMap.GetValueOrDefault(b.AssetId, "Equipment"),
                     OtherUserId = b.RenterId,
-                    OtherUserName = userMap.GetValueOrDefault(b.RenterId, "Lease Taker"),
+                    OtherUserName = (b.OwnerId == b.RenterId) ? "You (Self-Lease)" : userMap.GetValueOrDefault(b.RenterId, "Lease Taker"),
                     StartDate = b.StartDate,
                     EndDate = b.EndDate,
                     DailyRent = b.DailyRent,
                     TotalRent = b.TotalRent,
+                    OriginalDailyRent = b.OriginalDailyRent > 0 ? b.OriginalDailyRent : b.DailyRent,
+                    OriginalTotalRent = b.OriginalTotalRent > 0 ? b.OriginalTotalRent : (b.TotalRent > 0 ? b.TotalRent : (b.TotalDays * b.DailyRent)),
+                    IsNegotiated = b.IsNegotiated,
+                    NegotiatedDailyRent = b.NegotiatedDailyRent,
+                    ProposedNegotiatedDailyRent = b.ProposedNegotiatedDailyRent,
+                    NegotiationOfferedByUserId = b.NegotiationOfferedByUserId,
+                    NegotiationStatus = b.NegotiationStatus,
+                    NegotiationNotes = b.NegotiationNotes,
+                    NegotiatedAt = b.NegotiatedAt,
+                    IsPriceAgreed = b.IsPriceAgreed || (b.OwnerId == b.RenterId) || b.Status == BookingStatus.Active || b.Status == BookingStatus.Completed,
+                    PriceAgreedAt = b.PriceAgreedAt,
+                    AgreedDailyRent = b.AgreedDailyRent,
+                    PriceAgreedByUserId = b.PriceAgreedByUserId,
                     SecurityDeposit = b.SecurityDeposit,
                     TotalAmount = b.TotalAmount,
                     Status = b.Status,
@@ -284,7 +326,7 @@ namespace IndiAsset.Controllers
                     IsOwner = true,
                     HasReturnInspection = inspectionMap.ContainsKey(b.Id ?? string.Empty),
                     ReturnInspectionId = inspectionMap.GetValueOrDefault(b.Id ?? string.Empty),
-                    IsSecurityDepositPaid = b.IsSecurityDepositPaid || b.SecurityDeposit <= 0 || b.Status == BookingStatus.Active || b.Status == BookingStatus.Approved || b.Status == BookingStatus.Completed,
+                    IsSecurityDepositPaid = b.IsSecurityDepositPaid || b.SecurityDeposit <= 0 || b.SecurityDepositPaidAt.HasValue || b.Status == BookingStatus.Active || b.Status == BookingStatus.Completed,
                     SecurityDepositPaidAmount = b.SecurityDepositPaidAmount > 0 ? b.SecurityDepositPaidAmount : (b.IsSecurityDepositPaid ? b.SecurityDeposit : 0),
                     SecurityDepositPaidAt = b.SecurityDepositPaidAt
                 }).ToList()
@@ -310,15 +352,26 @@ namespace IndiAsset.Controllers
             if (booking == null) return NotFound();
             if (booking.OwnerId != currentUserId) return Forbid();
 
-            // Guard: Security deposit must be paid first before lease request can be approved
-            if (!booking.IsSecurityDepositPaid && booking.SecurityDeposit > 0)
+            // If the owner has proposed a counter-offer to the renter, owner MUST wait for renter to accept or reject before approving!
+            if (booking.NegotiationStatus == "Offered" && booking.NegotiationOfferedByUserId == currentUserId)
             {
-                TempData["ErrorMessage"] = $"Cannot approve lease request: Renter has not paid the required escrow security deposit of ₹{booking.SecurityDeposit:N0} yet.";
+                TempData["ErrorMessage"] = $"You have proposed a counter-offer of ₹{booking.ProposedNegotiatedDailyRent:N0}/day. You must wait for the leasing party to accept or reject your offer before approving the lease.";
                 return RedirectToAction(nameof(MyBookings), new { tab = "owner" });
             }
 
-            // Set to Active if start date is today or earlier, otherwise Approved
-            var newStatus = booking.StartDate <= DateTime.UtcNow.Date ? BookingStatus.Active : BookingStatus.Approved;
+            // Lease price must be negotiated and agreed upon before owner can approve
+            var isPriceAgreed = booking.IsPriceAgreed || (booking.OwnerId == booking.RenterId);
+            if (!isPriceAgreed)
+            {
+                TempData["ErrorMessage"] = "The lease price must be negotiated and agreed upon by both parties before the lease can be approved.";
+                return RedirectToAction(nameof(MyBookings), new { tab = "owner" });
+            }
+
+            // Set to Active if security deposit is already paid and start date is today/past, otherwise Approved
+            var isDepositSettled = booking.IsSecurityDepositPaid || booking.SecurityDeposit <= 0;
+            var newStatus = (isDepositSettled && booking.StartDate <= DateTime.UtcNow.Date)
+                ? BookingStatus.Active
+                : BookingStatus.Approved;
 
             var update = Builders<Booking>.Update
                 .Set(b => b.Status, newStatus)
@@ -327,11 +380,15 @@ namespace IndiAsset.Controllers
             await _mongoDbService.Bookings.UpdateOneAsync(b => b.Id == id, update);
 
             // Notify renter
+            var depositNotice = !isDepositSettled
+                ? " Please pay your escrow security deposit to activate your lease."
+                : string.Empty;
+
             var notification = new Notification
             {
                 UserId = booking.RenterId,
-                Title = "Lease Request Approved! 🎉",
-                Message = $"Your lease request for '{booking.AssetTitle}' ({booking.StartDate:dd MMM} - {booking.EndDate:dd MMM}) has been approved.",
+                Title = booking.IsNegotiated ? "Lease Request & Negotiated Price Approved! 🎉" : "Lease Request Approved! 🎉",
+                Message = $"Your lease request for '{booking.AssetTitle}' ({booking.StartDate:dd MMM} - {booking.EndDate:dd MMM}) has been approved by the owner.{depositNotice}",
                 Type = "BookingApproved",
                 TargetUrl = Url.Action("MyBookings", "Booking") ?? "/Booking/MyBookings",
                 CreatedAt = DateTime.UtcNow,
@@ -339,7 +396,9 @@ namespace IndiAsset.Controllers
             };
             await _mongoDbService.Notifications.InsertOneAsync(notification);
 
-            TempData["SuccessMessage"] = $"Lease request for '{booking.AssetTitle}' approved successfully!";
+            TempData["SuccessMessage"] = booking.IsNegotiated
+                ? $"Lease request for '{booking.AssetTitle}' approved with agreed negotiated rate of ₹{booking.DailyRent:N0}/day!"
+                : $"Lease request for '{booking.AssetTitle}' approved successfully!";
             return RedirectToAction(nameof(MyBookings), new { tab = "owner" });
         }
 
@@ -396,6 +455,14 @@ namespace IndiAsset.Controllers
             if (booking == null) return NotFound();
             if (booking.RenterId != currentUserId && booking.OwnerId != currentUserId) return Forbid();
 
+            // Price MUST be negotiated and agreed upon before paying deposit!
+            var isPriceAgreed = booking.IsPriceAgreed || (booking.OwnerId == booking.RenterId);
+            if (!isPriceAgreed)
+            {
+                TempData["ErrorMessage"] = "The lease price must be negotiated and agreed upon by both parties before the security deposit can be paid.";
+                return RedirectToAction(nameof(MyBookings), new { tab = "renter" });
+            }
+
             // If deposit already paid or not required
             if (booking.IsSecurityDepositPaid || booking.SecurityDeposit <= 0)
             {
@@ -422,13 +489,29 @@ namespace IndiAsset.Controllers
                 AssetTitle = booking.AssetTitle ?? asset?.Title ?? "Asset",
                 AssetCategory = asset?.Category ?? "Equipment",
                 PrimaryImageUrl = booking.AssetImageUrl ?? asset?.Images?.FirstOrDefault()?.Url,
+                OwnerId = booking.OwnerId,
                 OwnerName = owner?.FullName ?? owner?.Email ?? "Asset Owner",
+                RenterId = booking.RenterId,
                 RenterName = renter?.FullName ?? renter?.Email ?? "Renter",
                 StartDate = booking.StartDate,
                 EndDate = booking.EndDate,
                 TotalDays = booking.TotalDays > 0 ? booking.TotalDays : Math.Max(1, (int)(booking.EndDate.Date - booking.StartDate.Date).TotalDays),
                 DailyRent = booking.DailyRent,
                 TotalRent = booking.TotalRent,
+                IsNegotiated = booking.IsNegotiated,
+                OriginalDailyRent = booking.OriginalDailyRent > 0 ? booking.OriginalDailyRent : booking.DailyRent,
+                OriginalTotalRent = booking.OriginalTotalRent > 0 ? booking.OriginalTotalRent : (booking.TotalRent > 0 ? booking.TotalRent : (booking.TotalDays * booking.DailyRent)),
+                NegotiatedDailyRent = booking.NegotiatedDailyRent,
+                ProposedNegotiatedDailyRent = booking.ProposedNegotiatedDailyRent,
+                NegotiationOfferedByUserId = booking.NegotiationOfferedByUserId,
+                NegotiationStatus = booking.NegotiationStatus,
+                NegotiationNotes = booking.NegotiationNotes,
+                NegotiatedAt = booking.NegotiatedAt,
+                IsPriceAgreed = isPriceAgreed,
+                PriceAgreedAt = booking.PriceAgreedAt,
+                AgreedDailyRent = booking.AgreedDailyRent,
+                Status = booking.Status,
+                CanNegotiate = !booking.IsSecurityDepositPaid && (booking.Status == BookingStatus.Approved || booking.Status == BookingStatus.Pending),
                 SecurityDeposit = booking.SecurityDeposit,
                 TotalAmount = booking.TotalAmount,
                 RazorpayKeyId = _razorpayService.GetKeyId(),
@@ -453,6 +536,15 @@ namespace IndiAsset.Controllers
             if (booking == null) return NotFound();
             if (booking.RenterId != currentUserId) return Forbid();
 
+            var isPriceAgreed = booking.IsPriceAgreed || (booking.OwnerId == booking.RenterId);
+            if (!isPriceAgreed)
+            {
+                ModelState.AddModelError("RazorpayPaymentId", "The lease price must be negotiated and agreed upon before the security deposit can be paid.");
+                model.RazorpayKeyId = _razorpayService.GetKeyId();
+                model.IsSimulationMode = _razorpayService.IsSimulationMode();
+                return View(model);
+            }
+
             if (string.IsNullOrWhiteSpace(model.RazorpayPaymentId))
             {
                 ModelState.AddModelError("RazorpayPaymentId", "Payment of security deposit via Razorpay is required.");
@@ -474,13 +566,19 @@ namespace IndiAsset.Controllers
                 return View(model);
             }
 
+            // If the lease was already approved by owner, paying deposit activates the lease (or keeps approved ready for start date)
+            var nextStatus = booking.Status == BookingStatus.Approved
+                ? (booking.StartDate <= DateTime.UtcNow.Date ? BookingStatus.Active : BookingStatus.Approved)
+                : booking.Status;
+
             // Update Booking status
             var bookingUpdate = Builders<Booking>.Update
                 .Set(b => b.IsSecurityDepositPaid, true)
                 .Set(b => b.SecurityDepositPaymentId, model.RazorpayPaymentId)
                 .Set(b => b.SecurityDepositOrderId, model.RazorpayOrderId)
                 .Set(b => b.SecurityDepositPaidAmount, booking.SecurityDeposit)
-                .Set(b => b.SecurityDepositPaidAt, DateTime.UtcNow);
+                .Set(b => b.SecurityDepositPaidAt, DateTime.UtcNow)
+                .Set(b => b.Status, nextStatus);
 
             await _mongoDbService.Bookings.UpdateOneAsync(b => b.Id == model.BookingId, bookingUpdate);
 
@@ -502,13 +600,23 @@ namespace IndiAsset.Controllers
             };
             await _mongoDbService.Payments.InsertOneAsync(payment);
 
-            // Notify Owner that deposit is paid and request is ready for approval
+            // Notify Owner
             var renterUser = await _userManager.FindByIdAsync(booking.RenterId);
+            var renterName = renterUser?.FullName ?? renterUser?.Email ?? "Renter";
+
+            var noticeTitle = booking.Status == BookingStatus.Approved
+                ? "Escrow Security Deposit Secured! 🛡️"
+                : "Security Deposit Paid! Lease Ready for Approval 🛡️";
+
+            var noticeMsg = booking.Status == BookingStatus.Approved
+                ? $"{renterName} paid the required ₹{booking.SecurityDeposit:N0} escrow security deposit for '{booking.AssetTitle}'. The lease agreement is secured!"
+                : $"{renterName} has paid the required ₹{booking.SecurityDeposit:N0} security deposit into escrow. You can now approve the lease request for '{booking.AssetTitle}'.";
+
             var notification = new Notification
             {
                 UserId = booking.OwnerId,
-                Title = "Security Deposit Paid! Lease Ready for Approval 🛡️",
-                Message = $"{renterUser?.FullName ?? renterUser?.Email ?? "Renter"} has paid the required ₹{booking.SecurityDeposit:N0} security deposit into escrow. You can now approve the lease request for '{booking.AssetTitle}'.",
+                Title = noticeTitle,
+                Message = noticeMsg,
                 Type = "DepositPaid",
                 TargetUrl = Url.Action("MyBookings", "Booking", new { tab = "owner" }) ?? "/Booking/MyBookings?tab=owner",
                 CreatedAt = DateTime.UtcNow,
@@ -516,8 +624,268 @@ namespace IndiAsset.Controllers
             };
             await _mongoDbService.Notifications.InsertOneAsync(notification);
 
-            TempData["SuccessMessage"] = $"Security deposit of ₹{booking.SecurityDeposit:N0} paid and secured in escrow! The asset owner has been notified to approve your lease request.";
+            TempData["SuccessMessage"] = $"Security deposit of ₹{booking.SecurityDeposit:N0} paid and secured in escrow! Your lease agreement for '{booking.AssetTitle}' is confirmed.";
             return RedirectToAction(nameof(MyBookings));
+        }
+
+        // ======================================================
+        // NEGOTIATE LEASE PRICE (BEFORE PAYING SECURITY DEPOSIT)
+        // ======================================================
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> NegotiatePrice(string bookingId, decimal negotiatedDailyRent, string? notes, string? returnUrl = null)
+        {
+            if (string.IsNullOrEmpty(bookingId) || negotiatedDailyRent <= 0)
+            {
+                TempData["ErrorMessage"] = "Please provide a valid negotiated daily rental price greater than zero.";
+                if (string.Equals(returnUrl, "paydeposit", StringComparison.OrdinalIgnoreCase))
+                {
+                    return RedirectToAction(nameof(PayDeposit), new { id = bookingId });
+                }
+                return RedirectToAction(nameof(MyBookings));
+            }
+
+            var currentUserId = _userManager.GetUserId(User);
+            var booking = await _mongoDbService.Bookings
+                .Find(b => b.Id == bookingId)
+                .FirstOrDefaultAsync();
+
+            if (booking == null) return NotFound();
+            if (booking.RenterId != currentUserId && booking.OwnerId != currentUserId) return Forbid();
+
+            // Guard: price negotiation is only permitted before paying security deposit and while active agreement is pending/approved
+            if (booking.IsSecurityDepositPaid || booking.Status == BookingStatus.Completed || booking.Status == BookingStatus.Cancelled || booking.Status == BookingStatus.Rejected)
+            {
+                TempData["ErrorMessage"] = "Price negotiation is only available before paying the security deposit.";
+                if (string.Equals(returnUrl, "paydeposit", StringComparison.OrdinalIgnoreCase))
+                {
+                    return RedirectToAction(nameof(PayDeposit), new { id = bookingId });
+                }
+                return RedirectToAction(nameof(MyBookings), new { tab = booking.OwnerId == currentUserId ? "owner" : "renter" });
+            }
+
+            // Ensure original prices are preserved
+            if (booking.OriginalDailyRent <= 0)
+            {
+                booking.OriginalDailyRent = booking.DailyRent;
+                booking.OriginalTotalRent = booking.TotalRent > 0 ? booking.TotalRent : (booking.TotalDays * booking.DailyRent);
+            }
+
+            bool isOwner = (booking.OwnerId == currentUserId);
+            var days = booking.TotalDays > 0 ? booking.TotalDays : Math.Max(1, (int)(booking.EndDate.Date - booking.StartDate.Date).TotalDays);
+            var totalRent = days * negotiatedDailyRent;
+
+            var update = Builders<Booking>.Update
+                .Set(b => b.OriginalDailyRent, booking.OriginalDailyRent)
+                .Set(b => b.OriginalTotalRent, booking.OriginalTotalRent)
+                .Set(b => b.ProposedNegotiatedDailyRent, negotiatedDailyRent)
+                .Set(b => b.NegotiationOfferedByUserId, currentUserId)
+                .Set(b => b.NegotiationStatus, "Offered")
+                .Set(b => b.NegotiationNotes, notes?.Trim())
+                .Set(b => b.NegotiatedAt, DateTime.UtcNow)
+                .Set(b => b.IsPriceAgreed, false)
+                .Set(b => b.PriceAgreedAt, (DateTime?)null);
+
+            await _mongoDbService.Bookings.UpdateOneAsync(b => b.Id == bookingId, update);
+
+            var currentUser = await _userManager.GetUserAsync(User);
+            var senderName = !string.IsNullOrWhiteSpace(currentUser?.FullName) ? currentUser.FullName : (currentUser?.Email ?? (isOwner ? "Asset Owner" : "Renter"));
+            var targetUserId = isOwner ? booking.RenterId : booking.OwnerId;
+
+            var notification = new Notification
+            {
+                UserId = targetUserId,
+                Title = isOwner ? "Owner Counter-Offer Proposed! 🏷️" : "Negotiated Price Offer Received! 🤝",
+                Message = $"{senderName} proposed a daily rate of ₹{negotiatedDailyRent:N0}/day (Total: ₹{totalRent:N0}, Original: ₹{booking.OriginalDailyRent:N0}/day) for '{booking.AssetTitle}'.",
+                Type = "NegotiationProposed",
+                TargetUrl = Url.Action("MyBookings", "Booking", new { tab = isOwner ? "renter" : "owner" }) ?? "/Booking/MyBookings",
+                CreatedAt = DateTime.UtcNow,
+                IsRead = false
+            };
+            await _mongoDbService.Notifications.InsertOneAsync(notification);
+
+            TempData["SuccessMessage"] = $"Proposed rate of ₹{negotiatedDailyRent:N0}/day sent! Both parties must agree upon the price before the deposit is paid and the lease date begins.";
+            if (string.Equals(returnUrl, "paydeposit", StringComparison.OrdinalIgnoreCase))
+            {
+                return RedirectToAction(nameof(PayDeposit), new { id = bookingId });
+            }
+            if (string.Equals(returnUrl, "details", StringComparison.OrdinalIgnoreCase))
+            {
+                return RedirectToAction("Details", "Asset", new { id = booking.AssetId });
+            }
+            return RedirectToAction(nameof(MyBookings), new { tab = isOwner ? "owner" : "renter" });
+        }
+
+        // ======================================================
+        // AGREE ON LEASE PRICE (STARTS LEASE FROM AGREEMENT DATE)
+        // ======================================================
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AgreePrice(string bookingId, decimal? agreedDailyRent = null, string? returnUrl = null)
+        {
+            if (string.IsNullOrEmpty(bookingId)) return NotFound();
+
+            var currentUserId = _userManager.GetUserId(User);
+            var booking = await _mongoDbService.Bookings
+                .Find(b => b.Id == bookingId)
+                .FirstOrDefaultAsync();
+
+            if (booking == null) return NotFound();
+            if (booking.OwnerId != currentUserId && booking.RenterId != currentUserId) return Forbid();
+
+            // A party CANNOT agree to their OWN pending proposed offer!
+            // The other party must accept or reject it.
+            if (booking.NegotiationStatus == "Offered" && booking.NegotiationOfferedByUserId == currentUserId)
+            {
+                TempData["ErrorMessage"] = "You cannot accept your own proposed offer. Please wait for the other party to review and accept or reject your offer.";
+                if (string.Equals(returnUrl, "details", StringComparison.OrdinalIgnoreCase))
+                {
+                    return RedirectToAction("Details", "Asset", new { id = booking.AssetId });
+                }
+                return RedirectToAction(nameof(MyBookings), new { tab = booking.OwnerId == currentUserId ? "owner" : "renter" });
+            }
+
+            decimal finalDailyRent = 0;
+            if (agreedDailyRent.HasValue && agreedDailyRent.Value > 0)
+            {
+                finalDailyRent = agreedDailyRent.Value;
+            }
+            else if (booking.ProposedNegotiatedDailyRent.HasValue && booking.ProposedNegotiatedDailyRent.Value > 0)
+            {
+                finalDailyRent = booking.ProposedNegotiatedDailyRent.Value;
+            }
+            else if (booking.DailyRent > 0)
+            {
+                finalDailyRent = booking.DailyRent;
+            }
+            else
+            {
+                finalDailyRent = booking.OriginalDailyRent;
+            }
+
+            if (finalDailyRent <= 0)
+            {
+                TempData["ErrorMessage"] = "Invalid lease rental price.";
+                return RedirectToAction(nameof(MyBookings));
+            }
+
+            if (booking.OriginalDailyRent <= 0)
+            {
+                booking.OriginalDailyRent = booking.DailyRent > 0 ? booking.DailyRent : finalDailyRent;
+                booking.OriginalTotalRent = booking.TotalRent > 0 ? booking.TotalRent : (booking.TotalDays * booking.OriginalDailyRent);
+            }
+
+            // CRITICAL REQUIREMENT:
+            // "and the leasing date should start when the lease is agreed upon, not when the person leasing selected initially"
+            var today = DateTime.UtcNow.Date;
+            var totalDays = booking.TotalDays > 0 ? booking.TotalDays : Math.Max(1, (int)(booking.EndDate.Date - booking.StartDate.Date).TotalDays);
+            var newStartDate = today;
+            var newEndDate = today.AddDays(totalDays);
+            var totalRent = totalDays * finalDailyRent;
+            var totalAmount = totalRent + booking.SecurityDeposit;
+            var isNegotiated = (finalDailyRent != booking.OriginalDailyRent);
+
+            var update = Builders<Booking>.Update
+                .Set(b => b.IsPriceAgreed, true)
+                .Set(b => b.PriceAgreedAt, DateTime.UtcNow)
+                .Set(b => b.PriceAgreedByUserId, currentUserId)
+                .Set(b => b.AgreedDailyRent, finalDailyRent)
+                .Set(b => b.DailyRent, finalDailyRent)
+                .Set(b => b.TotalRent, totalRent)
+                .Set(b => b.TotalAmount, totalAmount)
+                .Set(b => b.StartDate, newStartDate)
+                .Set(b => b.EndDate, newEndDate)
+                .Set(b => b.OriginalDailyRent, booking.OriginalDailyRent)
+                .Set(b => b.OriginalTotalRent, booking.OriginalTotalRent)
+                .Set(b => b.IsNegotiated, isNegotiated)
+                .Set(b => b.NegotiatedDailyRent, isNegotiated ? finalDailyRent : (decimal?)null)
+                .Set(b => b.ProposedNegotiatedDailyRent, (decimal?)null)
+                .Set(b => b.NegotiationStatus, "Accepted")
+                .Set(b => b.NegotiatedAt, DateTime.UtcNow);
+
+            await _mongoDbService.Bookings.UpdateOneAsync(b => b.Id == bookingId, update);
+
+            var isOwner = (booking.OwnerId == currentUserId);
+            var otherPartyId = isOwner ? booking.RenterId : booking.OwnerId;
+
+            var notificationTitle = isOwner
+                ? "Lease Price Agreed by Owner! 🤝"
+                : "Counter-Offer Accepted by Renter! 🤝";
+
+            var notificationMsg = isOwner
+                ? $"The owner accepted the lease price of ₹{finalDailyRent:N0}/day for '{booking.AssetTitle}' ({totalDays} days). Lease schedule is now set from {newStartDate:dd MMM yyyy} to {newEndDate:dd MMM yyyy}. Escrow security deposit can now be paid!"
+                : $"The renter accepted your counter-offer of ₹{finalDailyRent:N0}/day for '{booking.AssetTitle}' ({totalDays} days). Lease schedule starts today ({newStartDate:dd MMM yyyy}). You can now approve the lease request!";
+
+            var notification = new Notification
+            {
+                UserId = otherPartyId,
+                Title = notificationTitle,
+                Message = notificationMsg,
+                Type = "PriceAgreed",
+                TargetUrl = Url.Action("MyBookings", "Booking", new { tab = isOwner ? "renter" : "owner" }) ?? "/Booking/MyBookings",
+                CreatedAt = DateTime.UtcNow,
+                IsRead = false
+            };
+            await _mongoDbService.Notifications.InsertOneAsync(notification);
+
+            TempData["SuccessMessage"] = isOwner
+                ? $"You accepted the price of ₹{finalDailyRent:N0}/day! The lease schedule is set to start today ({newStartDate:dd MMM yyyy} to {newEndDate:dd MMM yyyy}). You can now approve the lease."
+                : $"You accepted the owner's counter-offer of ₹{finalDailyRent:N0}/day! The lease schedule starts today ({newStartDate:dd MMM yyyy} to {newEndDate:dd MMM yyyy}). Please proceed to pay the escrow deposit.";
+
+            if (string.Equals(returnUrl, "paydeposit", StringComparison.OrdinalIgnoreCase))
+            {
+                return RedirectToAction(nameof(PayDeposit), new { id = bookingId });
+            }
+
+            return RedirectToAction(nameof(MyBookings), new { tab = isOwner ? "owner" : "renter" });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AcceptNegotiation(string bookingId, string? returnUrl = null)
+        {
+            return await AgreePrice(bookingId, null, returnUrl);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeclineNegotiation(string bookingId, string? returnUrl = null)
+        {
+            if (string.IsNullOrEmpty(bookingId)) return NotFound();
+
+            var currentUserId = _userManager.GetUserId(User);
+            var booking = await _mongoDbService.Bookings
+                .Find(b => b.Id == bookingId)
+                .FirstOrDefaultAsync();
+
+            if (booking == null) return NotFound();
+            if (booking.OwnerId != currentUserId && booking.RenterId != currentUserId) return Forbid();
+
+            var update = Builders<Booking>.Update
+                .Set(b => b.ProposedNegotiatedDailyRent, (decimal?)null)
+                .Set(b => b.NegotiationStatus, "Declined");
+
+            await _mongoDbService.Bookings.UpdateOneAsync(b => b.Id == bookingId, update);
+
+            var counterPartyId = booking.OwnerId == currentUserId ? booking.RenterId : booking.OwnerId;
+            var notification = new Notification
+            {
+                UserId = counterPartyId,
+                Title = "Negotiated Price Offer Declined",
+                Message = $"The proposed negotiated price offer for '{booking.AssetTitle}' was declined. The lease remains at ₹{booking.DailyRent:N0}/day.",
+                Type = "NegotiationDeclined",
+                TargetUrl = Url.Action("MyBookings", "Booking") ?? "/Booking/MyBookings",
+                CreatedAt = DateTime.UtcNow,
+                IsRead = false
+            };
+            await _mongoDbService.Notifications.InsertOneAsync(notification);
+
+            TempData["SuccessMessage"] = "Negotiation proposal declined.";
+            if (string.Equals(returnUrl, "paydeposit", StringComparison.OrdinalIgnoreCase))
+            {
+                return RedirectToAction(nameof(PayDeposit), new { id = bookingId });
+            }
+            return RedirectToAction(nameof(MyBookings), new { tab = booking.OwnerId == currentUserId ? "owner" : "renter" });
         }
 
         // ======================================================

@@ -50,27 +50,45 @@ public class IndexModel : PageModel
     ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
     ///     directly from your code. This API may change or be removed in future releases.
     /// </summary>
+    public string? Email { get; set; }
+    public DateTime CreatedAt { get; set; }
+
     public class InputModel
     {
-        /// <summary>
-        ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
-        /// </summary>
+        [Required(ErrorMessage = "Full Name is required")]
+        [Display(Name = "Full Name")]
+        [StringLength(100, ErrorMessage = "Full name cannot exceed 100 characters")]
+        public string FullName { get; set; } = string.Empty;
+
         [Phone]
         [Display(Name = "Phone number")]
         public string? PhoneNumber { get; set; }
+
+        [Display(Name = "City")]
+        [StringLength(100, ErrorMessage = "City cannot exceed 100 characters")]
+        public string? City { get; set; }
+
+        [Display(Name = "Address")]
+        [StringLength(250, ErrorMessage = "Address cannot exceed 250 characters")]
+        public string? Address { get; set; }
     }
 
     private async Task LoadAsync(ApplicationUser user)
     {
         var userName = await _userManager.GetUserNameAsync(user);
         var phoneNumber = await _userManager.GetPhoneNumberAsync(user);
+        var email = await _userManager.GetEmailAsync(user);
 
         Username = userName;
+        Email = email;
+        CreatedAt = user.CreatedAt;
 
         Input = new InputModel
         {
-            PhoneNumber = phoneNumber
+            FullName = user.FullName,
+            PhoneNumber = phoneNumber,
+            City = user.City,
+            Address = user.Address
         };
     }
 
@@ -111,8 +129,19 @@ public class IndexModel : PageModel
             }
         }
 
+        user.FullName = Input.FullName?.Trim() ?? string.Empty;
+        user.City = Input.City?.Trim();
+        user.Address = Input.Address?.Trim();
+
+        var updateResult = await _userManager.UpdateAsync(user);
+        if (!updateResult.Succeeded)
+        {
+            StatusMessage = "Unexpected error when updating profile information.";
+            return RedirectToPage();
+        }
+
         await _signInManager.RefreshSignInAsync(user);
-        StatusMessage = "Your profile has been updated";
+        StatusMessage = "Your profile has been successfully updated";
         return RedirectToPage();
     }
 }

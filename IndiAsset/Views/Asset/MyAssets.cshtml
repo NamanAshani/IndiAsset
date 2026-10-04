@@ -152,11 +152,36 @@
                                         <i class="fa-solid fa-clock me-1"></i> @item.TotalDays @(item.TotalDays == 1 ? "Day" : "Days")
                                     </div>
                                     <div class="small text-muted">
-                                        @item.StartDate.ToString("dd MMM yyyy") – @item.EndDate.ToString("dd MMM yyyy")
+                                        @if (item.IsPriceAgreed)
+                                        {
+                                            <span>@item.StartDate.ToString("dd MMM yyyy") – @item.EndDate.ToString("dd MMM yyyy")</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-warning"><i class="fa-solid fa-clock me-1"></i>Starts on agreement</span>
+                                        }
                                     </div>
                                 </td>
                                 <td class="border-0">
-                                    <div class="fw-bold text-success">₹@item.TotalRent.ToString("N0") <span class="small text-muted fw-normal">(Rent)</span></div>
+                                    @if (item.IsNegotiated)
+                                    {
+                                        <div class="fw-bold text-success">
+                                            ₹@item.TotalRent.ToString("N0")
+                                            <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25 ms-1" style="font-size:0.7rem;">Negotiated</span>
+                                        </div>
+                                        <div class="small text-muted text-decoration-line-through">Original: ₹@item.OriginalTotalRent.ToString("N0")</div>
+                                    }
+                                    else if (item.NegotiationStatus == "Offered" && item.ProposedNegotiatedDailyRent.HasValue)
+                                    {
+                                        <div class="fw-bold text-warning">
+                                            ₹@item.TotalRent.ToString("N0")
+                                            <span class="badge bg-warning bg-opacity-25 text-warning border border-warning border-opacity-25 ms-1" style="font-size:0.7rem;">Offer: ₹@item.ProposedNegotiatedDailyRent.Value.ToString("N0")/day</span>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="fw-bold text-success">₹@item.TotalRent.ToString("N0") <span class="small text-muted fw-normal">(Rent)</span></div>
+                                    }
                                     @if (item.SecurityDeposit > 0)
                                     {
                                         if (item.IsSecurityDepositPaid)
@@ -168,7 +193,7 @@
                                         else
                                         {
                                             <div class="badge bg-warning bg-opacity-25 text-warning border border-warning border-opacity-25 mt-1">
-                                                <i class="fa-solid fa-clock me-1"></i>Awaiting Deposit (₹@item.SecurityDeposit.ToString("N0"))
+                                                <i class="fa-solid fa-clock me-1"></i>@(item.IsPriceAgreed ? "Awaiting Deposit" : "Deposit Locked") (₹@item.SecurityDeposit.ToString("N0"))
                                             </div>
                                         }
                                     }
@@ -179,21 +204,33 @@
                                 </td>
                                 <td class="text-end pe-4 border-0">
                                     <div class="d-inline-flex gap-2 align-items-center">
-                                        @if (item.IsSecurityDepositPaid || item.SecurityDeposit <= 0)
+                                        @if (item.IsPriceAgreed)
                                         {
                                             <form method="post" asp-controller="Booking" asp-action="Approve" asp-route-id="@item.BookingId" class="d-inline">
                                                 @Html.AntiForgeryToken()
                                                 <button type="submit" class="btn btn-success btn-sm rounded-pill px-3 py-1.5 fw-semibold shadow-sm">
-                                                    <i class="fa-solid fa-check me-1"></i> Accept Request
+                                                    <i class="fa-solid fa-check me-1"></i> Approve
                                                 </button>
                                             </form>
                                         }
+                                        else if (item.NegotiationStatus == "Offered" && item.NegotiationOfferedByUserId != item.OtherUserId)
+                                        {
+                                            <span class="badge bg-warning bg-opacity-20 text-warning border border-warning border-opacity-30 px-3 py-2 rounded-pill">
+                                                <i class="fa-solid fa-hourglass-half me-1"></i> Awaiting Renter Response
+                                            </span>
+                                        }
                                         else
                                         {
-                                            <button class="btn btn-secondary btn-sm rounded-pill px-3 py-1.5 fw-semibold" disabled title="Renter must pay the escrow security deposit before this request can be approved.">
-                                                <i class="fa-solid fa-lock me-1"></i> Awaiting Deposit
-                                            </button>
+                                            <form method="post" asp-controller="Booking" asp-action="AgreePrice" asp-route-bookingId="@item.BookingId" class="d-inline">
+                                                @Html.AntiForgeryToken()
+                                                <button type="submit" class="btn btn-warning btn-sm rounded-pill px-3 py-1.5 fw-semibold text-dark shadow-sm" title="Agree on price and set lease start date to today">
+                                                    <i class="fa-solid fa-handshake me-1"></i> Agree Price (₹@(item.ProposedNegotiatedDailyRent?.ToString("N0") ?? item.DailyRent.ToString("N0"))/d)
+                                                </button>
+                                            </form>
                                         }
+                                        <a asp-controller="Booking" asp-action="MyBookings" asp-route-tab="owner" class="btn btn-outline-info btn-sm rounded-pill px-2.5 py-1.5" title="View & Negotiate Price">
+                                            <i class="fa-solid fa-handshake me-1"></i> Negotiate
+                                        </a>
                                         <form method="post" asp-controller="Booking" asp-action="Reject" asp-route-id="@item.BookingId" class="d-inline" onsubmit="return confirm('Decline this lease request?');">
                                             @Html.AntiForgeryToken()
                                             <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-2.5 py-1.5" title="Decline Request">
@@ -254,7 +291,6 @@
                                             <a asp-action="Details" asp-route-id="@asset.Id" class="fw-bold text-decoration-none" style="color: #f1f5f9;">
                                                 @asset.Title
                                             </a>
-                                            <small class="text-muted d-block">ID: @asset.Id</small>
                                         </div>
                                     </div>
                                 </td>
@@ -290,9 +326,9 @@
                                     }
                                 </td>
                                 <td class="text-end pe-4 border-0">
-                                    <div class="d-inline-flex align-items-center gap-1">
-                                        <a asp-action="Details" asp-route-id="@asset.Id" class="btn btn-sm border rounded-pill px-2.5" style="background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1)!important; color: #94a3b8;" title="View Listing">
-                                            <i class="fa-solid fa-eye"></i>
+                                    <div class="d-inline-flex align-items-center gap-2">
+                                        <a asp-action="Details" asp-route-id="@asset.Id" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-semibold" title="View details and lease this asset">
+                                            <i class="fa-solid fa-calendar-plus me-1"></i> View / Lease
                                         </a>
                                         <a asp-action="Edit" asp-route-id="@asset.Id" class="btn btn-sm border rounded-pill px-2.5" style="background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1)!important; color: #60a5fa;" title="Edit Listing">
                                             <i class="fa-solid fa-pen"></i>

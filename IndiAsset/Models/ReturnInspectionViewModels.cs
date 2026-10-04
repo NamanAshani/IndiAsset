@@ -89,7 +89,9 @@ namespace IndiAsset.Models
         public string AssetCategory { get; set; } = string.Empty;
         public string? PrimaryImageUrl { get; set; }
 
+        public string OwnerId { get; set; } = string.Empty;
         public string OwnerName { get; set; } = string.Empty;
+        public string RenterId { get; set; } = string.Empty;
         public string RenterName { get; set; } = string.Empty;
 
         public DateTime StartDate { get; set; }
@@ -97,8 +99,25 @@ namespace IndiAsset.Models
         public int TotalDays { get; set; }
         public decimal DailyRent { get; set; }
         public decimal TotalRent { get; set; }
+        public bool IsNegotiated { get; set; }
+        public decimal OriginalDailyRent { get; set; }
+        public decimal OriginalTotalRent { get; set; }
         public decimal SecurityDeposit { get; set; }
         public decimal TotalAmount { get; set; }
+
+        // Negotiation fields for PayDeposit view
+        public decimal? NegotiatedDailyRent { get; set; }
+        public decimal? ProposedNegotiatedDailyRent { get; set; }
+        public decimal? ProposedNegotiatedTotalRent => ProposedNegotiatedDailyRent.HasValue ? ProposedNegotiatedDailyRent.Value * TotalDays : null;
+        public string? NegotiationOfferedByUserId { get; set; }
+        public string? NegotiationStatus { get; set; }
+        public string? NegotiationNotes { get; set; }
+        public DateTime? NegotiatedAt { get; set; }
+        public BookingStatus Status { get; set; }
+        public bool CanNegotiate { get; set; } = true;
+        public bool IsPriceAgreed { get; set; }
+        public DateTime? PriceAgreedAt { get; set; }
+        public decimal? AgreedDailyRent { get; set; }
 
         // Razorpay payment fields for deposit
         public string? RazorpayKeyId { get; set; }

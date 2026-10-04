@@ -121,19 +121,13 @@
                             <div class="profile-info-val">@(string.IsNullOrEmpty(Model?.Address) ? "Not set" : Model.Address)</div>
                         </div>
                     </div>
-                    <div class="col-12">
-                        <div class="profile-tile">
-                            <div class="profile-info-label">Database Identifier (MongoDB _id)</div>
-                            <div class="profile-info-val text-muted font-monospace small">@Model?.Id</div>
-                        </div>
-                    </div>
                 </div>
 
                 <div class="d-flex justify-content-between align-items-center pt-3 border-top border-secondary border-opacity-25">
-                    <a asp-area="Identity" asp-page="/Account/Manage/Index" class="btn btn-outline-secondary rounded-pill px-4">
-                        <i class="fas fa-user-edit me-1"></i> Account Settings
+                    <a asp-area="Identity" asp-page="/Account/Manage/Index" class="btn btn-primary-custom rounded-pill px-4">
+                        <i class="fas fa-user-edit me-2"></i> Edit Profile
                     </a>
-                    <a asp-controller="Home" asp-action="Index" class="btn btn-outline-primary rounded-pill px-4">
+                    <a asp-controller="Home" asp-action="Index" class="btn btn-outline-secondary rounded-pill px-4">
                         <i class="fas fa-home me-1"></i> Back to Home
                     </a>
                 </div>

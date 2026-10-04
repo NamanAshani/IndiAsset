@@ -129,6 +129,20 @@
                 color: #64748b;
             }
 
+            /* ---------- Remove arrows/spinners on number inputs across all forms ---------- */
+            input[type="number"]::-webkit-outer-spin-button,
+            input[type="number"]::-webkit-inner-spin-button,
+            input::-webkit-outer-spin-button,
+            input::-webkit-inner-spin-button {
+                -webkit-appearance: none !important;
+                margin: 0 !important;
+            }
+
+            input[type="number"] {
+                -moz-appearance: textfield !important;
+                appearance: textfield !important;
+            }
+
             .input-group-text {
                 background-color: #1e2130 !important;
                 border-color: rgba(255, 255, 255, 0.1);
@@ -354,13 +368,8 @@
     <footer class="footer">
         <div class="container">
             <div class="row align-items-center">
-                <div class="col-md-6 text-center text-md-start">
+                <div class="col-12 text-center">
                     <span class="fw-bold">IndiAsset</span> &copy; @DateTime.Now.Year — <strong>Lease. Share. Build.</strong>
-                </div>
-                <div class="col-md-6 text-center text-md-end mt-3 mt-md-0">
-                    <a href="#" class="me-3">Privacy</a>
-                    <a href="#" class="me-3">Terms</a>
-                    <a href="#">Support</a>
                 </div>
             </div>
         </div>

@@ -26,6 +26,35 @@ namespace IndiAsset.Models
         [BsonRepresentation(BsonType.Decimal128)]
         public decimal TotalRent { get; set; }
 
+        // Original prices before any negotiation
+        [BsonRepresentation(BsonType.Decimal128)]
+        public decimal OriginalDailyRent { get; set; }
+
+        [BsonRepresentation(BsonType.Decimal128)]
+        public decimal OriginalTotalRent { get; set; }
+
+        // Negotiation tracking
+        public bool IsNegotiated { get; set; } = false;
+
+        [BsonRepresentation(BsonType.Decimal128)]
+        public decimal? NegotiatedDailyRent { get; set; }
+
+        [BsonRepresentation(BsonType.Decimal128)]
+        public decimal? ProposedNegotiatedDailyRent { get; set; }
+
+        public string? NegotiationOfferedByUserId { get; set; }
+        public string? NegotiationStatus { get; set; } // null, "Offered", "Accepted", "Declined"
+        public string? NegotiationNotes { get; set; }
+        public DateTime? NegotiatedAt { get; set; }
+
+        // Price agreement tracking (price must be agreed upon before deposit payment or approval)
+        public bool IsPriceAgreed { get; set; } = false;
+        public DateTime? PriceAgreedAt { get; set; }
+
+        [BsonRepresentation(BsonType.Decimal128)]
+        public decimal? AgreedDailyRent { get; set; }
+        public string? PriceAgreedByUserId { get; set; }
+
         [BsonRepresentation(BsonType.Decimal128)]
         public decimal SecurityDeposit { get; set; }
 

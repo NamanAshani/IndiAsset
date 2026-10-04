@@ -214,21 +214,12 @@
                             </div>
 
                             <div class="mt-auto d-flex gap-2">
-                                <a asp-action="Details" asp-route-id="@asset.Id" class="btn btn-outline-primary rounded-3 flex-grow-1 fw-semibold py-2">
-                                    View Details
+                                <a asp-action="Details" asp-route-id="@asset.Id" class="btn btn-outline-primary rounded-3 flex-grow-1 fw-semibold py-2" title="View details and lease this asset">
+                                    <i class="fa-solid fa-calendar-plus me-1"></i> View / Lease
                                 </a>
-                                @if (asset.IsOwner)
-                                {
-                                    <a asp-action="Edit" asp-route-id="@asset.Id" class="btn btn-outline-secondary rounded-3 px-3 py-2" title="Edit Listing">
-                                        <i class="fa-solid fa-pen-to-square"></i>
-                                    </a>
-                                }
-                                else
-                                {
-                                    <a asp-controller="Chat" asp-action="Index" asp-route-recipientId="@asset.OwnerId" class="btn btn-outline-secondary rounded-3 px-3 py-2" title="Chat with Owner">
-                                        <i class="fa-regular fa-comment-dots"></i>
-                                    </a>
-                                }
+                                <a asp-controller="Chat" asp-action="Index" asp-route-recipientId="@asset.OwnerId" class="btn btn-outline-secondary rounded-3 px-3 py-2" title="Chat with Owner">
+                                    <i class="fa-regular fa-comment-dots"></i>
+                                </a>
                             </div>
                         </div>
                     </div>

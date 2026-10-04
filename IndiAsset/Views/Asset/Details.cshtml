@@ -1,10 +1,11 @@
 @model IndiAsset.Models.AssetDetailsViewModel
 @{
-    ViewData["Title"] = $"{Model.Asset.Title} — Lease on IndiAsset";
+    ViewData["Title"] = $"{Model.Asset.Title} — {(Model.IsOwner ? "Owner Management" : "Lease on IndiAsset")}";
     var primaryImage = Model.Asset.Images.FirstOrDefault(i => i.IsPrimary)?.Url ?? Model.Asset.Images.FirstOrDefault()?.Url;
 }
 
 <div class="container py-4">
+    <!-- Breadcrumb -->
     <nav aria-label="breadcrumb" class="mb-4">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a asp-controller="Home" asp-action="Index" class="text-decoration-none">Home</a></li>
@@ -17,63 +18,171 @@
     @if (TempData["ErrorMessage"] != null)
     {
         <div class="alert alert-danger alert-dismissible fade show rounded-3 shadow-sm mb-4" role="alert">
-            @TempData["ErrorMessage"]
+            <i class="fa-solid fa-triangle-exclamation me-1.5"></i> @TempData["ErrorMessage"]
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     }
     @if (TempData["SuccessMessage"] != null)
     {
         <div class="alert alert-success alert-dismissible fade show rounded-3 shadow-sm mb-4" role="alert">
-            @TempData["SuccessMessage"]
+            <i class="fa-solid fa-circle-check me-1.5"></i> @TempData["SuccessMessage"]
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     }
 
-    <!-- OCCUPANCY BANNER -->
-    @if (Model.IsCurrentlyOccupied)
+    @if (Model.IsOwner)
     {
-        <div class="alert rounded-4 shadow-sm p-4 mb-4 d-flex align-items-center justify-content-between flex-wrap gap-3" style="background: rgba(220, 38, 38, 0.08); border: 1px solid rgba(220, 38, 38, 0.2); border-left: 6px solid #dc2626;">
-            <div class="d-flex align-items-center gap-3">
-                <div class="rounded-circle p-3 d-flex align-items-center justify-content-center" style="width: 52px; height: 52px; background: rgba(220,38,38,0.15); color: #fca5a5;">
-                    <i class="fa-solid fa-clock-rotate-left fa-xl"></i>
+        <!-- ====================================================== -->
+        <!-- OWNER WORKSPACE HEADER & CONTROL BAR                   -->
+        <!-- ====================================================== -->
+        <div class="card rounded-4 p-4 mb-4 border-0 shadow-sm" style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98)); border: 1px solid rgba(245, 158, 11, 0.35)!important;">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center shadow" style="width: 56px; height: 56px; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); color: #f59e0b;">
+                        <i class="fa-solid fa-crown fa-2x"></i>
+                    </div>
+                    <div>
+                        <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                            <span class="badge bg-warning bg-opacity-25 text-warning border border-warning border-opacity-50 rounded-pill px-3 py-1 fw-semibold">
+                                <i class="fa-solid fa-user-shield me-1"></i> Owner Workspace
+                            </span>
+                            @if (Model.Asset.IsAvailable)
+                            {
+                                <span class="badge bg-success bg-opacity-20 text-success border border-success border-opacity-30 rounded-pill px-3 py-1">
+                                    <i class="fa-solid fa-circle-dot me-1"></i> Live on Marketplace
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary bg-opacity-25 text-white-50 border border-secondary border-opacity-25 rounded-pill px-3 py-1">
+                                    <i class="fa-solid fa-pause me-1"></i> Paused / Delisted
+                                </span>
+                            }
+                            @if (Model.IsCurrentlyOccupied)
+                            {
+                                <span class="badge bg-danger bg-opacity-20 text-danger border border-danger border-opacity-30 rounded-pill px-3 py-1">
+                                    <i class="fa-solid fa-truck-fast me-1"></i> In Active Lease
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-info bg-opacity-20 text-info border border-info border-opacity-30 rounded-pill px-3 py-1">
+                                    <i class="fa-solid fa-check me-1"></i> Available for Rent
+                                </span>
+                            }
+                        </div>
+                        <h3 class="fw-bold text-white mb-1">@Model.Asset.Title</h3>
+                        <p class="text-muted small mb-0">
+                            You are viewing your own asset listing in management mode. Renters browsing the site see a public booking & negotiation page.
+                        </p>
+                    </div>
                 </div>
-                <div>
-                    <h5 class="fw-bold mb-1" style="color: #fca5a5;">Currently Occupied on Active Lease</h5>
-                    <p class="mb-0 text-muted">
-                        This asset is in active deployment until <strong style="color:#e2e8f0;">@(Model.OccupiedUntil.HasValue ? Model.OccupiedUntil.Value.ToString("dd MMMM yyyy") : "further notice")</strong>.
-                        You can advance-book starting from <strong style="color:#e2e8f0;">@Model.AvailableFrom.ToString("dd MMMM yyyy")</strong>.
-                    </p>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <a asp-action="Edit" asp-route-id="@Model.Asset.Id" class="btn btn-warning rounded-pill px-3.5 py-2 fw-semibold shadow-sm text-dark">
+                        <i class="fa-solid fa-pen-to-square me-1.5"></i> Edit Listing
+                    </a>
+                    <form method="post" asp-action="ToggleAvailability" asp-route-id="@Model.Asset.Id" asp-route-returnUrl="details" class="d-inline">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-outline-light rounded-pill px-3 py-2 fw-semibold">
+                            <i class="fa-solid @(Model.Asset.IsAvailable ? "fa-pause" : "fa-play") me-1.5"></i>
+                            @(Model.Asset.IsAvailable ? "Pause Listing" : "Resume Listing")
+                        </button>
+                    </form>
+                    <a asp-action="MyAssets" class="btn btn-outline-secondary rounded-pill px-3 py-2">
+                        <i class="fa-solid fa-cubes me-1.5"></i> My Inventory
+                    </a>
                 </div>
             </div>
-            <span class="badge px-3 py-2 rounded-pill fw-semibold" style="background: rgba(220,38,38,0.15); color: #fca5a5; border: 1px solid rgba(220,38,38,0.3);">
-                Available from @Model.AvailableFrom.ToString("dd MMM yyyy")
-            </span>
+
+            <!-- Owner KPI Stats Row -->
+            <div class="row g-3 mt-3 pt-3 border-top border-secondary border-opacity-25">
+                <div class="col-6 col-md-3">
+                    <div class="p-3 rounded-3" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);">
+                        <span class="text-muted small d-block mb-1">Listed Daily Rate</span>
+                        <span class="fs-4 fw-bold text-primary">₹@Model.Asset.DailyRent.ToString("N0")</span>
+                        <span class="text-muted small"> / day</span>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="p-3 rounded-3" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);">
+                        <span class="text-muted small d-block mb-1">Escrow Deposit Required</span>
+                        <span class="fs-4 fw-bold text-warning">₹@Model.Asset.SecurityDeposit.ToString("N0")</span>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="p-3 rounded-3" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);">
+                        <span class="text-muted small d-block mb-1">Pending Inquiries</span>
+                        <span class="fs-4 fw-bold @(Model.OwnerPendingBookings.Any() ? "text-warning" : "text-white")">
+                            @Model.OwnerPendingBookings.Count @(Model.OwnerPendingBookings.Count == 1 ? "Inquiry" : "Inquiries")
+                        </span>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="p-3 rounded-3" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);">
+                        <span class="text-muted small d-block mb-1">Lifetime Revenue</span>
+                        <span class="fs-4 fw-bold text-success">₹@Model.TotalRevenueEarned.ToString("N0")</span>
+                        <span class="text-muted small"> (@Model.TotalBookingsCount leases)</span>
+                    </div>
+                </div>
+            </div>
         </div>
     }
     else
     {
-        <div class="alert rounded-4 shadow-sm p-3 mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2" style="background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34,197,94,0.2); border-left: 6px solid #22c55e;">
-            <div class="d-flex align-items-center gap-3">
-                <div class="rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 44px; height: 44px; background: rgba(34,197,94,0.15); color: #86efac;">
-                    <i class="fa-solid fa-check fa-lg"></i>
+        <!-- OCCUPANCY BANNER (FOR PUBLIC / RENTER) -->
+        @if (Model.IsCurrentlyOccupied)
+        {
+            <div class="alert rounded-4 shadow-sm p-4 mb-4 d-flex align-items-center justify-content-between flex-wrap gap-3" style="background: rgba(220, 38, 38, 0.08); border: 1px solid rgba(220, 38, 38, 0.2); border-left: 6px solid #dc2626;">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-circle p-3 d-flex align-items-center justify-content-center" style="width: 52px; height: 52px; background: rgba(220,38,38,0.15); color: #fca5a5;">
+                        <i class="fa-solid fa-clock-rotate-left fa-xl"></i>
+                    </div>
+                    <div>
+                        <h5 class="fw-bold mb-1" style="color: #fca5a5;">Currently Occupied on Active Lease</h5>
+                        <p class="mb-0 text-muted">
+                            This asset is in active deployment until <strong style="color:#e2e8f0;">@(Model.OccupiedUntil.HasValue ? Model.OccupiedUntil.Value.ToString("dd MMMM yyyy") : "further notice")</strong>.
+                            You can advance-book starting from <strong style="color:#e2e8f0;">@Model.AvailableFrom.ToString("dd MMMM yyyy")</strong>.
+                        </p>
+                    </div>
                 </div>
-                <div>
-                    <h6 class="fw-bold mb-0" style="color: #86efac;">Available Now for Immediate Lease</h6>
-                    <small class="text-muted">Ready for instant dispatch and verified safe handover.</small>
-                </div>
+                <span class="badge px-3 py-2 rounded-pill fw-semibold" style="background: rgba(220,38,38,0.15); color: #fca5a5; border: 1px solid rgba(220,38,38,0.3);">
+                    Available from @Model.AvailableFrom.ToString("dd MMM yyyy")
+                </span>
             </div>
-            <span class="badge bg-success text-white px-3 py-2 rounded-pill fw-semibold">
-                Immediate Availability
-            </span>
-        </div>
+        }
+        else
+        {
+            <div class="alert rounded-4 shadow-sm p-3 mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2" style="background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34,197,94,0.2); border-left: 6px solid #22c55e;">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 44px; height: 44px; background: rgba(34,197,94,0.15); color: #86efac;">
+                        <i class="fa-solid fa-check fa-lg"></i>
+                    </div>
+                    <div>
+                        <h6 class="fw-bold mb-0" style="color: #86efac;">Available Now for Immediate Lease</h6>
+                        <small class="text-muted">Ready for instant dispatch and verified safe handover.</small>
+                    </div>
+                </div>
+                <span class="badge bg-success text-white px-3 py-2 rounded-pill fw-semibold">
+                    Immediate Availability
+                </span>
+            </div>
+        }
     }
 
     <div class="row g-4">
-        <!-- Left: Gallery, Specs -->
+        <!-- ====================================================== -->
+        <!-- LEFT COLUMN: GALLERY, SPECS, HISTORY                   -->
+        <!-- ====================================================== -->
         <div class="col-lg-8">
             <div class="card rounded-4 overflow-hidden mb-4">
                 <div class="position-relative text-center" style="max-height: 480px; overflow: hidden; background: #252836;">
                     <img id="mainAssetImage" src="@primaryImage" alt="@Model.Asset.Title" class="w-100 object-fit-contain" style="max-height: 480px; min-height: 320px; transition: opacity 0.2s;" />
+                    @if (Model.IsOwner)
+                    {
+                        <span class="badge bg-warning bg-opacity-90 text-dark fw-bold position-absolute top-0 start-0 m-3 shadow-sm px-3 py-2 rounded-pill">
+                            <i class="fa-solid fa-crown me-1"></i> Your Listing Photo
+                        </span>
+                    }
                 </div>
                 @if (Model.Asset.Images.Count > 1)
                 {
@@ -117,127 +226,508 @@
                     </div>
                 }
 
-                <div class="row g-3 p-3 rounded-4 bg-light">
-                    <div class="col-sm-4 text-center">
-                        <i class="fa-solid fa-shield-halved text-primary fa-xl mb-2"></i>
-                        <h6 class="fw-bold mb-1" style="color:#e2e8f0;">Escrow Protected</h6>
-                        <small class="text-muted">Security deposit held safely until asset returned.</small>
+                @if (Model.IsOwner)
+                {
+                    <!-- OWNER PROTECTION & REGISTRY METRICS -->
+                    <div class="row g-3 p-3 rounded-4 bg-light">
+                        <div class="col-sm-4 text-center">
+                            <i class="fa-solid fa-shield-halved text-warning fa-xl mb-2"></i>
+                            <h6 class="fw-bold mb-1" style="color:#e2e8f0;">Escrow Protection</h6>
+                            <small class="text-muted">₹@Model.Asset.SecurityDeposit.ToString("N0") deposit collected before handover.</small>
+                        </div>
+                        <div class="col-sm-4 text-center border-start border-end">
+                            <i class="fa-solid fa-camera-rotate text-success fa-xl mb-2"></i>
+                            <h6 class="fw-bold mb-1" style="color:#e2e8f0;">Certified Baseline</h6>
+                            <small class="text-muted">Listing photos serve as evidence for return condition checks.</small>
+                        </div>
+                        <div class="col-sm-4 text-center">
+                            <i class="fa-solid fa-barcode text-primary fa-xl mb-2"></i>
+                            <h6 class="fw-bold mb-1" style="color:#e2e8f0;">Asset Reference SKU</h6>
+                            <small class="text-muted">#@(Model.Asset.Id?.Substring(Math.Max(0, Model.Asset.Id.Length - 8)).ToUpper())</small>
+                        </div>
                     </div>
-                    <div class="col-sm-4 text-center border-start border-end">
-                        <i class="fa-solid fa-certificate text-success fa-xl mb-2"></i>
-                        <h6 class="fw-bold mb-1" style="color:#e2e8f0;">Verified Condition</h6>
-                        <small class="text-muted">Thorough mechanical and operational inspection.</small>
+                }
+                else
+                {
+                    <!-- RENTER TRUST BADGES -->
+                    <div class="row g-3 p-3 rounded-4 bg-light">
+                        <div class="col-sm-4 text-center">
+                            <i class="fa-solid fa-shield-halved text-primary fa-xl mb-2"></i>
+                            <h6 class="fw-bold mb-1" style="color:#e2e8f0;">Escrow Protected</h6>
+                            <small class="text-muted">Security deposit held safely until asset returned.</small>
+                        </div>
+                        <div class="col-sm-4 text-center border-start border-end">
+                            <i class="fa-solid fa-certificate text-success fa-xl mb-2"></i>
+                            <h6 class="fw-bold mb-1" style="color:#e2e8f0;">Verified Condition</h6>
+                            <small class="text-muted">Thorough mechanical and operational inspection.</small>
+                        </div>
+                        <div class="col-sm-4 text-center">
+                            <i class="fa-solid fa-truck-ramp-box text-warning fa-xl mb-2"></i>
+                            <h6 class="fw-bold mb-1" style="color:#e2e8f0;">Logistics Support</h6>
+                            <small class="text-muted">Flexible pickup or coordinated delivery.</small>
+                        </div>
                     </div>
-                    <div class="col-sm-4 text-center">
-                        <i class="fa-solid fa-truck-ramp-box text-warning fa-xl mb-2"></i>
-                        <h6 class="fw-bold mb-1" style="color:#e2e8f0;">Logistics Support</h6>
-                        <small class="text-muted">Flexible pickup or coordinated delivery.</small>
+                }
+            </div>
+
+            @if (Model.IsOwner && Model.OwnerRecentHistory.Any())
+            {
+                <!-- OWNER EXCLUSIVE: ASSET LEASE HISTORY & LEDGER -->
+                <div class="card rounded-4 p-4 mb-4">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <div>
+                            <h5 class="fw-bold text-white mb-0">
+                                <i class="fa-solid fa-clock-rotate-left text-warning me-2"></i> Lease History for this Asset
+                            </h5>
+                            <small class="text-muted">All active and historical deployments for this specific machine</small>
+                        </div>
+                        <span class="badge bg-secondary bg-opacity-25 text-white-50 px-3 py-1.5 rounded-pill">
+                            @Model.OwnerRecentHistory.Count Records
+                        </span>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-dark table-hover align-middle mb-0" style="background: transparent;">
+                            <thead>
+                                <tr class="text-muted small border-bottom border-secondary border-opacity-25">
+                                    <th>Tenant</th>
+                                    <th>Period</th>
+                                    <th>Duration</th>
+                                    <th>Agreed Rate</th>
+                                    <th>Total Rent</th>
+                                    <th>Status</th>
+                                    <th class="text-end">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var lease in Model.OwnerRecentHistory)
+                                {
+                                    <tr class="border-bottom border-secondary border-opacity-10">
+                                        <td>
+                                            <div class="fw-semibold text-white">@lease.OtherUserName</div>
+                                            <small class="text-muted">#@(lease.BookingId.Substring(Math.Max(0, lease.BookingId.Length - 6)))</small>
+                                        </td>
+                                        <td class="small text-muted">
+                                            @lease.StartDate.ToString("dd MMM") – @lease.EndDate.ToString("dd MMM yyyy")
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-primary bg-opacity-20 text-primary">@lease.TotalDays d</span>
+                                        </td>
+                                        <td class="fw-semibold text-white">
+                                            ₹@lease.DailyRent.ToString("N0")/d
+                                        </td>
+                                        <td class="fw-bold text-success">
+                                            ₹@lease.TotalRent.ToString("N0")
+                                        </td>
+                                        <td>
+                                            @if (lease.Status == BookingStatus.Active)
+                                            {
+                                                <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25">Active</span>
+                                            }
+                                            else if (lease.Status == BookingStatus.Completed)
+                                            {
+                                                <span class="badge bg-primary bg-opacity-25 text-primary border border-primary border-opacity-25">Completed</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary">@lease.Status</span>
+                                            }
+                                        </td>
+                                        <td class="text-end">
+                                            <div class="d-inline-flex gap-1">
+                                                <a asp-controller="Chat" asp-action="Index" asp-route-recipientId="@lease.OtherUserId" class="btn btn-outline-light btn-sm py-1 px-2" title="Chat with Tenant">
+                                                    <i class="fa-solid fa-comments"></i>
+                                                </a>
+                                                @if (lease.Status == BookingStatus.Completed)
+                                                {
+                                                    <a asp-controller="Booking" asp-action="InspectionReview" asp-route-bookingId="@lease.BookingId" class="btn btn-outline-success btn-sm py-1 px-2" title="View Inspection Review">
+                                                        <i class="fa-solid fa-clipboard-check"></i>
+                                                    </a>
+                                                }
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-            </div>
+            }
         </div>
 
-        <!-- Right: Booking & Owner -->
+        <!-- ====================================================== -->
+        <!-- RIGHT COLUMN: OWNER CONTROL PANEL vs RENTER BOOKING   -->
+        <!-- ====================================================== -->
         <div class="col-lg-4">
             <div class="sticky-top" style="top: 90px;">
-                <div class="card rounded-4 p-4 mb-4">
-                    <div class="d-flex align-items-baseline justify-content-between pb-3 mb-3 border-bottom">
-                        <div>
-                            <span class="text-muted small d-block">Daily Lease Rate</span>
-                            <span class="h3 fw-bold text-primary mb-0">₹@Model.Asset.DailyRent.ToString("N0")</span>
-                            <span class="text-muted small"> / day</span>
-                        </div>
-                        <div class="text-end">
-                            <span class="text-muted small d-block">Refundable Deposit</span>
-                            <span class="fw-bold" style="color:#e2e8f0;">₹@Model.Asset.SecurityDeposit.ToString("N0")</span>
-                        </div>
-                    </div>
+                @if (Model.IsOwner)
+                {
+                    <!-- ============================================== -->
+                    <!-- OWNER COMMAND CENTER PANEL                     -->
+                    <!-- ============================================== -->
 
-                    @if (Model.IsOwner)
-                    {
-                        <div class="alert alert-info border-0 rounded-3 text-center mb-3">
-                            <i class="fa-solid fa-crown me-1 text-warning"></i> You own this asset listing.
-                        </div>
-                        <div class="d-flex gap-2 mb-3">
-                            <a asp-action="Edit" asp-route-id="@Model.Asset.Id" class="btn btn-warning flex-grow-1 rounded-3 py-2 fw-semibold">
-                                <i class="fa-solid fa-pen me-1"></i> Edit Listing
-                            </a>
-                            <a asp-action="MyAssets" class="btn btn-outline-secondary rounded-3 py-2 px-3">
-                                Dashboard
-                            </a>
+                    <!-- 1. PENDING INQUIRIES & NEGOTIATIONS (HIGH PRIORITY) -->
+                    <div class="card rounded-4 p-4 mb-4 border-0 shadow-sm" style="background: #1e2130; border: 1px solid rgba(255,255,255,0.08)!important;">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <h5 class="fw-bold text-white mb-0">
+                                <i class="fa-solid fa-bell text-warning me-2"></i> Renter Inquiries
+                            </h5>
+                            @if (Model.OwnerPendingBookings.Any())
+                            {
+                                <span class="badge bg-warning bg-opacity-25 text-warning border border-warning border-opacity-50 rounded-pill px-2.5 py-1 fw-semibold">
+                                    @Model.OwnerPendingBookings.Count Action Needed
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-success bg-opacity-20 text-success rounded-pill px-2.5 py-1">
+                                    All Clear
+                                </span>
+                            }
                         </div>
 
                         @if (Model.OwnerPendingBookings.Any())
                         {
-                            <div class="border border-warning border-opacity-50 rounded-3 p-3 bg-warning bg-opacity-10 mb-3">
-                                <div class="d-flex align-items-center justify-content-between mb-2">
-                                    <h6 class="fw-bold text-warning mb-0">
-                                        <i class="fa-solid fa-bell me-1"></i> Pending Inquiries (@Model.OwnerPendingBookings.Count)
-                                    </h6>
-                                    <a asp-controller="Booking" asp-action="MyBookings" asp-route-tab="owner" class="small text-warning text-decoration-none">
-                                        View All &rarr;
-                                    </a>
-                                </div>
-                                @foreach (var req in Model.OwnerPendingBookings)
-                                {
-                                    <div class="bg-dark p-2.5 rounded-3 mb-2 border border-secondary border-opacity-25 small">
-                                        <div class="d-flex justify-content-between mb-1">
-                                            <strong class="text-white">@req.OtherUserName</strong>
-                                            <span class="badge bg-primary">@req.TotalDays Days</span>
+                            <p class="text-muted small mb-3">
+                                Renters are waiting for price agreement or lease confirmation on this asset:
+                            </p>
+                            @foreach (var req in Model.OwnerPendingBookings)
+                            {
+                                <div class="bg-dark p-3 rounded-3 mb-3 border border-secondary border-opacity-25 shadow-sm">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <div>
+                                            <div class="fw-bold text-white">@req.OtherUserName</div>
+                                            <span class="badge bg-primary bg-opacity-20 text-primary" style="font-size:0.7rem;">@req.TotalDays Days Lease</span>
                                         </div>
-                                        <div class="text-muted small mb-2">
-                                            @req.StartDate.ToString("dd MMM") – @req.EndDate.ToString("dd MMM yyyy") • <span class="text-success fw-bold">₹@req.TotalRent.ToString("N0")</span>
-                                            @if (req.SecurityDeposit > 0)
+                                        <span class="text-muted" style="font-size:0.75rem;">
+                                            @req.CreatedAt.ToString("dd MMM, hh:mm tt")
+                                        </span>
+                                    </div>
+
+                                    <div class="p-2 rounded-2 mb-2" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);">
+                                        <div class="d-flex justify-content-between small mb-1">
+                                            <span class="text-muted">Requested Period:</span>
+                                            <span class="text-white fw-semibold">
+                                                @(req.IsPriceAgreed ? $"{req.StartDate:dd MMM} – {req.EndDate:dd MMM yyyy}" : $"{req.TotalDays} Days (Starts on Agreement)")
+                                            </span>
+                                        </div>
+                                        <div class="d-flex justify-content-between small mb-1">
+                                            <span class="text-muted">Rate:</span>
+                                            @if (req.IsNegotiated)
                                             {
-                                                <div class="mt-1">
-                                                    @if (req.IsSecurityDepositPaid)
-                                                    {
-                                                        <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25">
-                                                            <i class="fa-solid fa-shield-check me-1"></i>Deposit Paid: ₹@req.SecurityDeposit.ToString("N0")
-                                                        </span>
-                                                    }
-                                                    else
-                                                    {
-                                                        <span class="badge bg-warning bg-opacity-25 text-warning border border-warning border-opacity-25">
-                                                            <i class="fa-solid fa-clock me-1"></i>Awaiting Deposit: ₹@req.SecurityDeposit.ToString("N0")
-                                                        </span>
-                                                    }
+                                                <div>
+                                                    <span class="text-success fw-bold">₹@req.DailyRent.ToString("N0")/d</span>
+                                                    <span class="badge bg-success bg-opacity-25 text-success ms-1" style="font-size:0.65rem;">Agreed</span>
                                                 </div>
                                             }
-                                        </div>
-                                        <div class="d-flex gap-1.5 align-items-center">
-                                            @if (req.IsSecurityDepositPaid || req.SecurityDeposit <= 0)
+                                            else if (req.NegotiationStatus == "Offered" && req.ProposedNegotiatedDailyRent.HasValue)
                                             {
-                                                <form method="post" asp-controller="Booking" asp-action="Approve" asp-route-id="@req.BookingId" class="d-inline flex-grow-1">
-                                                    @Html.AntiForgeryToken()
-                                                    <button type="submit" class="btn btn-success btn-sm w-100 py-1 fw-semibold">
-                                                        <i class="fa-solid fa-check me-1"></i> Approve
-                                                    </button>
-                                                </form>
+                                                if (req.NegotiationOfferedByUserId != req.OtherUserId)
+                                                {
+                                                    <div>
+                                                        <span class="text-info fw-bold">₹@req.ProposedNegotiatedDailyRent.Value.ToString("N0")/d</span>
+                                                        <span class="badge bg-info bg-opacity-25 text-info ms-1" style="font-size:0.65rem;">Your Offer</span>
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <div>
+                                                        <span class="text-warning fw-bold">₹@req.ProposedNegotiatedDailyRent.Value.ToString("N0")/d</span>
+                                                        <span class="badge bg-warning bg-opacity-25 text-warning ms-1" style="font-size:0.65rem;">Renter Offer</span>
+                                                    </div>
+                                                }
                                             }
                                             else
                                             {
-                                                <button class="btn btn-secondary btn-sm flex-grow-1 py-1 fw-semibold" disabled title="Renter must pay the security deposit into escrow before you can approve this lease.">
-                                                    <i class="fa-solid fa-lock me-1"></i> Awaiting Deposit
-                                                </button>
+                                                <span class="text-white fw-bold">₹@req.DailyRent.ToString("N0")/d</span>
                                             }
-                                            <form method="post" asp-controller="Booking" asp-action="Reject" asp-route-id="@req.BookingId" class="d-inline" onsubmit="return confirm('Decline this request?');">
-                                                @Html.AntiForgeryToken()
-                                                <button type="submit" class="btn btn-outline-danger btn-sm py-1 px-2" title="Decline Request">
-                                                    <i class="fa-solid fa-xmark"></i>
-                                                </button>
-                                            </form>
-                                            <a asp-controller="Chat" asp-action="Index" asp-route-recipientId="@req.OtherUserId" class="btn btn-outline-primary btn-sm py-1 px-2" title="Chat">
-                                                <i class="fa-solid fa-comments"></i>
-                                            </a>
+                                        </div>
+                                        <div class="d-flex justify-content-between small">
+                                            <span class="text-muted">Estimated Rent:</span>
+                                            <span class="text-success fw-bold">₹@req.TotalRent.ToString("N0")</span>
                                         </div>
                                     </div>
-                                }
+
+                                    @if (!string.IsNullOrWhiteSpace(req.NegotiationNotes))
+                                    {
+                                        <div class="small text-muted fst-italic mb-2 p-1.5 rounded" style="background: rgba(255,255,255,0.02); font-size:0.75rem;">
+                                            <i class="fa-solid fa-quote-left text-warning me-1"></i> "@req.NegotiationNotes"
+                                        </div>
+                                    }
+
+                                    <div class="d-flex gap-1.5 align-items-center pt-1">
+                                        @if (req.IsPriceAgreed)
+                                        {
+                                            <form method="post" asp-controller="Booking" asp-action="Approve" asp-route-id="@req.BookingId" class="d-inline flex-grow-1">
+                                                @Html.AntiForgeryToken()
+                                                <button type="submit" class="btn btn-success btn-sm w-100 py-1.5 fw-semibold shadow-sm">
+                                                    <i class="fa-solid fa-check me-1"></i> Approve Lease
+                                                </button>
+                                            </form>
+                                        }
+                                        else if (req.NegotiationStatus == "Offered" && req.NegotiationOfferedByUserId != req.OtherUserId)
+                                        {
+                                            <!-- OWNER PROPOSED COUNTER-OFFER: MUST WAIT FOR RENTER TO ACCEPT/REJECT -->
+                                            <span class="badge bg-warning bg-opacity-20 text-warning border border-warning border-opacity-30 py-2 px-2.5 flex-grow-1 text-center">
+                                                <i class="fa-solid fa-hourglass-half me-1"></i> Awaiting Renter Response
+                                            </span>
+                                            <button type="button" class="btn btn-outline-info btn-sm py-1.5 px-2" data-bs-toggle="modal" data-bs-target="#ownerCounterModal_@req.BookingId" title="Modify Counter-Offer">
+                                                <i class="fa-solid fa-pen"></i>
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            var targetRate = req.ProposedNegotiatedDailyRent ?? req.DailyRent;
+                                            <form method="post" asp-controller="Booking" asp-action="AgreePrice" asp-route-bookingId="@req.BookingId" asp-route-agreedDailyRent="@targetRate" asp-route-returnUrl="details" class="d-inline flex-grow-1">
+                                                @Html.AntiForgeryToken()
+                                                <button type="submit" class="btn btn-warning btn-sm w-100 py-1.5 fw-semibold text-dark shadow-sm" title="Accept price and reset start date to today">
+                                                    <i class="fa-solid fa-handshake me-1"></i> Agree Price (₹@targetRate.ToString("N0")/d)
+                                                </button>
+                                            </form>
+                                            <button type="button" class="btn btn-outline-info btn-sm py-1.5 px-2" data-bs-toggle="modal" data-bs-target="#ownerCounterModal_@req.BookingId" title="Propose Counter-Offer">
+                                                <i class="fa-solid fa-handshake"></i>
+                                            </button>
+                                        }
+                                        <form method="post" asp-controller="Booking" asp-action="Reject" asp-route-id="@req.BookingId" class="d-inline" onsubmit="return confirm('Decline this lease request?');">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="btn btn-outline-danger btn-sm py-1.5 px-2" title="Decline Request">
+                                                <i class="fa-solid fa-xmark"></i>
+                                            </button>
+                                        </form>
+                                        <a asp-controller="Chat" asp-action="Index" asp-route-recipientId="@req.OtherUserId" class="btn btn-outline-primary btn-sm py-1.5 px-2" title="Chat with Renter">
+                                            <i class="fa-solid fa-comments"></i>
+                                        </a>
+                                    </div>
+                                </div>
+
+                                <!-- OWNER COUNTER-OFFER MODAL -->
+                                <div class="modal fade" id="ownerCounterModal_@req.BookingId" tabindex="-1" aria-labelledby="ownerCounterModalLabel_@req.BookingId" aria-hidden="true">
+                                    <div class="modal-dialog modal-dialog-centered">
+                                        <div class="modal-content text-white" style="background-color: #1a1d27; border: 1px solid rgba(255, 255, 255, 0.1);">
+                                            <form method="post" asp-controller="Booking" asp-action="NegotiatePrice" asp-route-returnUrl="details">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="bookingId" value="@req.BookingId" />
+
+                                                <div class="modal-header border-secondary border-opacity-25 px-4 pt-4 pb-2">
+                                                    <h5 class="modal-title fw-bold text-white" id="ownerCounterModalLabel_@req.BookingId">
+                                                        <i class="fa-solid fa-handshake text-warning me-2"></i>
+                                                        Propose Counter-Offer to Renter
+                                                    </h5>
+                                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                </div>
+
+                                                <div class="modal-body px-4 py-3">
+                                                    <p class="small text-muted mb-3">
+                                                        Enter a counter daily rental rate for <strong>@req.OtherUserName</strong>. Once submitted, the system will wait for the renter to accept or reject your offer before you can approve the lease.
+                                                    </p>
+
+                                                    <div class="p-3 rounded-3 mb-3 small" style="background-color: #1e2130; border: 1px solid rgba(255, 255, 255, 0.06);">
+                                                        <div class="d-flex justify-content-between mb-1">
+                                                            <span class="text-muted">Renter:</span>
+                                                            <strong class="text-white">@req.OtherUserName</strong>
+                                                        </div>
+                                                        <div class="d-flex justify-content-between mb-1">
+                                                            <span class="text-muted">Duration:</span>
+                                                            <span class="text-white">@req.TotalDays Days</span>
+                                                        </div>
+                                                        <div class="d-flex justify-content-between">
+                                                            <span class="text-muted">Original Listed Rate:</span>
+                                                            <span class="text-white">₹@req.OriginalDailyRent.ToString("N0") / day</span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="mb-3">
+                                                        <label class="form-label small fw-semibold text-white">
+                                                            Your Counter Daily Rate (₹ / day)
+                                                        </label>
+                                                        <div class="input-group">
+                                                            <span class="input-group-text bg-dark border-secondary border-opacity-25 text-muted">₹</span>
+                                                            <input type="number" name="negotiatedDailyRent"
+                                                                   class="form-control rounded-end text-white fw-bold fs-5"
+                                                                   style="background-color: #1e2130; border-color: rgba(255,255,255,0.15);"
+                                                                   value="@((int)(req.ProposedNegotiatedDailyRent ?? req.DailyRent))"
+                                                                   min="1" step="10" required />
+                                                            <span class="input-group-text bg-dark border-secondary border-opacity-25 text-muted">/ day</span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="mb-2">
+                                                        <label class="form-label small fw-semibold text-white">Note to Renter (Optional)</label>
+                                                        <textarea name="notes" class="form-control" rows="2"
+                                                                  placeholder="e.g. Can do ₹X/day if delivery is picked up directly..."
+                                                                  style="background-color: #1e2130; border-color: rgba(255,255,255,0.15); color: #e2e8f0;">@req.NegotiationNotes</textarea>
+                                                    </div>
+                                                </div>
+
+                                                <div class="modal-footer border-secondary border-opacity-25 px-4 pb-4 pt-2">
+                                                    <button type="button" class="btn btn-outline-secondary rounded-pill px-3" data-bs-dismiss="modal">Cancel</button>
+                                                    <button type="submit" class="btn btn-warning rounded-pill px-4 fw-semibold shadow-sm text-dark">
+                                                        <i class="fa-solid fa-paper-plane me-1"></i> Send Counter-Offer
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="text-center py-4">
+                                <i class="fa-solid fa-inbox fa-3x text-muted mb-2 opacity-50"></i>
+                                <div class="text-white fw-semibold mb-1">No Pending Inquiries</div>
+                                <small class="text-muted d-block">
+                                    Your listing is live and discoverable. When renters submit requests or price proposals, they will appear here.
+                                </small>
                             </div>
                         }
-                    }
-                    else
+
+                        <a asp-controller="Booking" asp-action="MyBookings" asp-route-tab="owner" class="btn btn-outline-secondary btn-sm w-100 rounded-3 py-1.5 text-center mt-2">
+                            <i class="fa-solid fa-list-check me-1.5"></i> Open Full Owner Dashboard
+                        </a>
+                    </div>
+
+                    <!-- 2. CURRENT ACTIVE LEASE (IF OCCUPIED) -->
+                    @if (Model.IsCurrentlyOccupied && Model.OwnerActiveBookings.Any())
                     {
+                        var active = Model.OwnerActiveBookings.First();
+                        <div class="card rounded-4 p-4 mb-4 border-0 shadow-sm" style="background: rgba(220, 38, 38, 0.08); border: 1px solid rgba(220, 38, 38, 0.25)!important;">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <h6 class="fw-bold text-danger mb-0">
+                                    <i class="fa-solid fa-truck-fast me-1.5"></i> Current Active Tenant
+                                </h6>
+                                <span class="badge bg-danger text-white rounded-pill px-2.5 py-1">In Deployment</span>
+                            </div>
+                            <div class="text-white fw-bold mb-1">@active.OtherUserName</div>
+                            <div class="text-muted small mb-2">
+                                Due for return on <strong class="text-white">@active.EndDate.ToString("dd MMMM yyyy")</strong>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <a asp-controller="Chat" asp-action="Index" asp-route-recipientId="@active.OtherUserId" class="btn btn-outline-light btn-sm flex-grow-1 rounded-pill">
+                                    <i class="fa-solid fa-comments me-1"></i> Message Tenant
+                                </a>
+                                <a asp-controller="Booking" asp-action="ReturnAsset" asp-route-bookingId="@active.BookingId" class="btn btn-danger btn-sm rounded-pill px-3">
+                                    Return Inspection
+                                </a>
+                            </div>
+                        </div>
+                    }
+
+                    <!-- 3. SELF-LEASE / RESERVE MACHINE FOR INTERNAL OPERATIONS -->
+                    <div class="card rounded-4 p-4 mb-4 border-0 shadow-sm" style="background: #1e2130; border: 1px solid rgba(255,255,255,0.08)!important;">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <h5 class="fw-bold text-white mb-0">
+                                <i class="fa-solid fa-calendar-check text-warning me-2"></i> Internal Deployment
+                            </h5>
+                            <span class="badge bg-warning bg-opacity-25 text-warning border border-warning border-opacity-25 rounded-pill px-2.5 py-1">
+                                Self-Lease
+                            </span>
+                        </div>
+                        <p class="text-muted small mb-3">
+                            Need this equipment for your own project or scheduled maintenance? Reserve it on the platform calendar.
+                        </p>
+
+                        <div class="alert p-2.5 rounded-3 mb-3 small" style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.25); color: #86efac;">
+                            <i class="fa-solid fa-shield-check me-1"></i>
+                            <strong>No Deposit Required:</strong> Self-leasing bypasses escrow security deposit and auto-approves immediately.
+                        </div>
+
+                        <form method="post" asp-controller="Booking" asp-action="Create" id="leaseForm">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="AssetId" value="@Model.Asset.Id" />
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold small text-muted">
+                                    <i class="fa-regular fa-calendar me-1"></i> Reserve Start Date
+                                </label>
+                                <input type="date" id="startDate" name="StartDate"
+                                       value="@Model.BookingForm.StartDate.ToString("yyyy-MM-dd")"
+                                       min="@DateTime.UtcNow.ToString("yyyy-MM-dd")"
+                                       class="form-control rounded-3" required onchange="onStartDateChanged()" />
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label class="form-label fw-semibold small text-muted mb-0">
+                                        <i class="fa-solid fa-clock me-1"></i> Duration
+                                    </label>
+                                    <span class="badge bg-primary bg-opacity-25 text-primary border border-primary border-opacity-25 small" id="daysBadge">3 Days</span>
+                                </div>
+                                <div class="input-group">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="adjustDays(-1)">
+                                        <i class="fa-solid fa-minus"></i>
+                                    </button>
+                                    <input type="number" id="leaseDays" name="NumberOfDays"
+                                           value="@Model.BookingForm.NumberOfDays"
+                                           min="1" max="365"
+                                           class="form-control rounded-0 text-center fw-bold text-white fs-5"
+                                           required onchange="onDaysChanged()" oninput="onDaysChanged()" />
+                                    <button class="btn btn-outline-secondary" type="button" onclick="adjustDays(1)">
+                                        <i class="fa-solid fa-plus"></i>
+                                    </button>
+                                </div>
+                                <div class="d-flex gap-1.5 flex-wrap mt-2">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary py-0.5 px-2 small rounded-pill" onclick="setPresetDays(1)">1 Day</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary py-0.5 px-2 small rounded-pill" onclick="setPresetDays(3)">3 Days</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary py-0.5 px-2 small rounded-pill" onclick="setPresetDays(7)">1 Week</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary py-0.5 px-2 small rounded-pill" onclick="setPresetDays(15)">15 Days</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary py-0.5 px-2 small rounded-pill" onclick="setPresetDays(30)">1 Month</button>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold small text-muted">
+                                    <i class="fa-solid fa-flag-checkered me-1"></i> Release / Return Date
+                                </label>
+                                <input type="date" id="endDate" name="EndDate"
+                                       value="@Model.BookingForm.EndDate.ToString("yyyy-MM-dd")"
+                                       min="@DateTime.UtcNow.AddDays(1).ToString("yyyy-MM-dd")"
+                                       class="form-control rounded-3" required onchange="onEndDateChanged()" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold small text-muted">Internal Operation Notes</label>
+                                <textarea name="Notes" class="form-control rounded-3" rows="2" placeholder="e.g. Scheduled quarterly service, deployed to Site B..."></textarea>
+                            </div>
+
+                            <button type="submit" id="btnSubmitLease" class="btn btn-warning w-100 rounded-3 py-2.5 fw-semibold shadow-sm text-dark fs-6">
+                                <i id="btnSubmitIcon" class="fa-solid fa-calendar-check me-1.5"></i>
+                                <span id="btnSubmitText">Reserve Asset for Internal Use (<span id="btnDurationText">3 Days</span>)</span>
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- 4. QUICK LISTING CONTROLS -->
+                    <div class="card rounded-4 p-3 border-0 shadow-sm" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06)!important;">
+                        <span class="text-muted small fw-semibold d-block mb-2">QUICK ACTIONS</span>
+                        <div class="d-grid gap-2">
+                            <a asp-action="Edit" asp-route-id="@Model.Asset.Id" class="btn btn-outline-light btn-sm text-start py-2">
+                                <i class="fa-solid fa-pen-to-square text-warning me-2"></i> Edit Pricing &amp; Specifications
+                            </a>
+                            <a asp-action="MyAssets" class="btn btn-outline-light btn-sm text-start py-2">
+                                <i class="fa-solid fa-table-cells text-primary me-2"></i> Manage Entire Inventory
+                            </a>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <!-- ============================================== -->
+                    <!-- PUBLIC / RENTER BOOKING & NEGOTIATION PANEL    -->
+                    <!-- ============================================== -->
+                    <div class="card rounded-4 p-4 mb-4">
+                        <div class="d-flex align-items-baseline justify-content-between pb-3 mb-3 border-bottom">
+                            <div>
+                                <span class="text-muted small d-block">Daily Lease Rate</span>
+                                <span class="h3 fw-bold text-primary mb-0">₹@Model.Asset.DailyRent.ToString("N0")</span>
+                                <span class="text-muted small"> / day</span>
+                            </div>
+                            <div class="text-end">
+                                <span class="text-muted small d-block">Refundable Deposit</span>
+                                <span class="fw-bold" style="color:#e2e8f0;">₹@Model.Asset.SecurityDeposit.ToString("N0")</span>
+                            </div>
+                        </div>
+
                         <form method="post" asp-controller="Booking" asp-action="Create" id="leaseForm">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="AssetId" value="@Model.Asset.Id" />
@@ -297,6 +787,33 @@
                                 <textarea name="Notes" class="form-control rounded-3" rows="2" placeholder="e.g. Need transport, operational location..."></textarea>
                             </div>
 
+                            <!-- Negotiated Price Option -->
+                            <div class="mb-3 p-3 rounded-3" style="background: rgba(30, 41, 59, 0.7); border: 1px dashed rgba(59, 130, 246, 0.4);">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div>
+                                        <label class="form-check-label fw-bold text-white small cursor-pointer m-0" for="toggleNegotiate">
+                                            <i class="fa-solid fa-handshake text-info me-1"></i> Propose Negotiated Price
+                                        </label>
+                                        <div class="text-muted" style="font-size: 0.73rem;">Offer custom daily rent before paying deposit</div>
+                                    </div>
+                                    <div class="form-check form-switch m-0">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="toggleNegotiate" name="ProposeNegotiatedPrice" value="true" onchange="toggleNegotiationSection(this.checked)">
+                                    </div>
+                                </div>
+                                <div id="negotiationFields" style="display:none;" class="pt-2 border-top border-secondary border-opacity-25 mt-2">
+                                    <label class="form-label small text-muted mb-1">Your Proposed Daily Rate (₹/day)</label>
+                                    <div class="input-group mb-2">
+                                        <span class="input-group-text bg-dark border-secondary text-white">₹</span>
+                                        <input type="number" id="proposedDailyRent" name="ProposedDailyRent" class="form-control text-white fw-bold" placeholder="@Model.Asset.DailyRent.ToString("N0")" min="1" oninput="onProposedRentChanged()" />
+                                        <span class="input-group-text bg-dark border-secondary text-muted small">/ day</span>
+                                    </div>
+                                    <div id="negotiationPreview" class="small p-2 rounded-2 mb-2" style="display:none; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3);">
+                                    </div>
+                                    <label class="form-label small text-muted mb-1">Note to Owner (Optional)</label>
+                                    <textarea name="NegotiationNotes" class="form-control form-control-sm rounded-2" rows="2" placeholder="e.g. Long-term hire discount requested, ready to pay deposit once approved..."></textarea>
+                                </div>
+                            </div>
+
                             <div class="bg-light p-3 rounded-3 mb-3">
                                 <div class="d-flex justify-content-between small text-muted mb-1">
                                     <span>Selected Duration</span>
@@ -304,7 +821,7 @@
                                 </div>
                                 <div class="d-flex justify-content-between small text-muted mb-1">
                                     <span>Daily Rent Rate</span>
-                                    <span class="fw-semibold" style="color:#e2e8f0;">₹@Model.Asset.DailyRent.ToString("N0") / day</span>
+                                    <span id="calcRate" class="fw-semibold" style="color:#e2e8f0;">₹@Model.Asset.DailyRent.ToString("N0") / day</span>
                                 </div>
                                 <div class="d-flex justify-content-between small text-muted mb-1">
                                     <span>Rental Total</span>
@@ -318,7 +835,7 @@
                                     <div class="d-flex justify-content-between align-items-center">
                                         <div>
                                             <span class="fw-bold text-warning small d-block">
-                                                <i class="fa-solid fa-shield-halved me-1"></i> Due Upfront Before Approval:
+                                                <i class="fa-solid fa-shield-halved me-1"></i> Refundable Escrow Deposit:
                                             </span>
                                             <span class="small text-muted" style="font-size: 0.75rem;">Held securely in escrow until return</span>
                                         </div>
@@ -333,46 +850,48 @@
 
                             @if (User.Identity?.IsAuthenticated == true)
                             {
-                                <button type="submit" class="btn btn-primary w-100 rounded-3 py-2.5 fw-semibold shadow-sm fs-6">
-                                    <i class="fa-solid fa-shield-check me-1"></i> Pay Deposit &amp; Request Lease (<span id="btnDurationText">3 Days</span>)
+                                <button type="submit" id="btnSubmitLease" class="btn btn-primary w-100 rounded-3 py-2.5 fw-semibold shadow-sm fs-6">
+                                    <i id="btnSubmitIcon" class="fa-solid fa-handshake me-1"></i>
+                                    <span id="btnSubmitText">Request Lease &amp; Negotiate Price (<span id="btnDurationText">3 Days</span>)</span>
                                 </button>
+                                <small class="text-muted text-center d-block mt-2" style="font-size:0.75rem;">
+                                    <i class="fa-solid fa-info-circle me-1 text-primary"></i>The rental price is negotiated and agreed upon by both parties before the security deposit is paid or approved. The lease date begins on the agreement date.
+                                </small>
                             }
                             else
                             {
-                                <a href="/Identity/Account/Login?returnUrl=@Context.Request.Path" class="btn btn-primary w-100 rounded-3 py-2 fw-semibold">
+                                <a href="/Identity/Account/Login?returnUrl=@Context.Request.Path" class="btn btn-primary w-100 rounded-3 py-2.5 fw-semibold">
                                     Log in to Lease Asset
                                 </a>
                             }
                         </form>
-                    }
-                </div>
-
-                <div class="card rounded-4 p-4">
-                    <h6 class="fw-bold mb-3" style="color: #f1f5f9;">Asset Owner</h6>
-                    <div class="d-flex align-items-center gap-3 mb-3">
-                        <div class="bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 48px; height: 48px; font-size: 1.2rem;">
-                            @(Model.Owner?.FullName?.FirstOrDefault() ?? Model.Owner?.Email?.FirstOrDefault() ?? 'O')
-                        </div>
-                        <div>
-                            <h6 class="fw-bold mb-0" style="color: #f1f5f9;">
-                                @(Model.Owner?.FullName ?? Model.Owner?.Email ?? "Verified Partner")
-                            </h6>
-                            <span class="badge bg-success bg-opacity-10 text-success small rounded-pill">
-                                Identity Verified
-                            </span>
-                        </div>
                     </div>
 
-                    @if (!Model.IsOwner)
-                    {
+                    <!-- OWNER PROFILE CARD (FOR PUBLIC / RENTER) -->
+                    <div class="card rounded-4 p-4">
+                        <h6 class="fw-bold mb-3" style="color: #f1f5f9;">Asset Owner</h6>
+                        <div class="d-flex align-items-center gap-3 mb-3">
+                            <div class="bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 48px; height: 48px; font-size: 1.2rem;">
+                                @(Model.Owner?.FullName?.FirstOrDefault() ?? Model.Owner?.Email?.FirstOrDefault() ?? 'O')
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-0" style="color: #f1f5f9;">
+                                    @(Model.Owner?.FullName ?? Model.Owner?.Email ?? "Verified Partner")
+                                </h6>
+                                <span class="badge bg-success bg-opacity-10 text-success small rounded-pill">
+                                    Identity Verified
+                                </span>
+                            </div>
+                        </div>
+
                         <a asp-controller="Chat" asp-action="Index" asp-route-recipientId="@Model.Asset.OwnerId" class="btn btn-outline-primary w-100 rounded-3 py-2 fw-semibold">
-                            Chat with Owner
+                            <i class="fa-solid fa-comments me-1.5"></i> Chat with Owner
                         </a>
                         <small class="text-muted text-center d-block mt-2">
                             Instant real-time messaging via IndiAsset Chat
                         </small>
-                    }
-                </div>
+                    </div>
+                }
             </div>
         </div>
     </div>
@@ -441,22 +960,87 @@
         recalculateCost();
     }
 
+    function toggleNegotiationSection(checked) {
+        const fields = document.getElementById('negotiationFields');
+        if (fields) {
+            fields.style.display = checked ? 'block' : 'none';
+        }
+        recalculateCost();
+    }
+
+    function onProposedRentChanged() {
+        recalculateCost();
+    }
+
     function recalculateCost() {
         const days = getDays();
-        const rentSubtotal = days * dailyRent;
+        const toggle = document.getElementById('toggleNegotiate');
+        const proposedInput = document.getElementById('proposedDailyRent');
+        const isNegotiating = toggle && toggle.checked;
+        const proposedRate = isNegotiating && proposedInput && proposedInput.value ? parseFloat(proposedInput.value) : null;
+        const effectiveDailyRate = (proposedRate && proposedRate > 0) ? proposedRate : dailyRent;
+
+        const rentSubtotal = days * effectiveDailyRate;
+        const regularTotal = days * dailyRent;
         const settlementOnReturn = Math.max(0, rentSubtotal - securityDeposit);
 
         const daysBadge = document.getElementById('daysBadge');
         if (daysBadge) daysBadge.innerText = days + (days === 1 ? ' Day' : ' Days');
 
-        const btnText = document.getElementById('btnDurationText');
-        if (btnText) btnText.innerText = days + (days === 1 ? ' Day' : ' Days');
+        const btnIcon = document.getElementById('btnSubmitIcon');
+        const btnText = document.getElementById('btnSubmitText');
+
+        const isOwner = @(Model.IsOwner ? "true" : "false");
+        if (isOwner) {
+            if (btnIcon) btnIcon.className = 'fa-solid fa-calendar-check me-1.5';
+            if (btnText) btnText.innerHTML = `Reserve Asset for Internal Use (<span id="btnDurationText">${days} ${days === 1 ? 'Day' : 'Days'}</span>)`;
+        } else if (isNegotiating && proposedRate && proposedRate > 0) {
+            if (btnIcon) btnIcon.className = 'fa-solid fa-handshake me-1';
+            if (btnText) btnText.innerHTML = `Request Lease with Negotiated Price (${days} ${days === 1 ? 'Day' : 'Days'})`;
+        } else {
+            if (btnIcon) btnIcon.className = 'fa-solid fa-handshake me-1';
+            if (btnText) btnText.innerHTML = `Request Lease &amp; Negotiate Price (<span id="btnDurationText">${days} ${days === 1 ? 'Day' : 'Days'}</span>)`;
+        }
 
         const calcDays = document.getElementById('calcDays');
         if (calcDays) calcDays.innerText = days + (days === 1 ? ' day' : ' days');
 
+        const calcRate = document.getElementById('calcRate');
+        if (calcRate) {
+            if (isNegotiating && proposedRate && proposedRate > 0) {
+                calcRate.innerHTML = `<span class="text-info fw-bold">₹${proposedRate.toLocaleString('en-IN')} / day</span> <span class="badge bg-info bg-opacity-25 text-info border border-info border-opacity-25 ms-1" style="font-size:0.7rem;">Proposed</span> <span class="text-muted text-decoration-line-through small d-block">Original: ₹${dailyRent.toLocaleString('en-IN')}</span>`;
+            } else {
+                calcRate.innerText = '₹' + dailyRent.toLocaleString('en-IN') + ' / day';
+            }
+        }
+
         const calcRent = document.getElementById('calcRent');
-        if (calcRent) calcRent.innerText = '₹' + rentSubtotal.toLocaleString('en-IN');
+        if (calcRent) {
+            if (isNegotiating && proposedRate && proposedRate > 0 && proposedRate < dailyRent) {
+                const savings = regularTotal - rentSubtotal;
+                calcRent.innerHTML = `<span class="text-white fw-bold">₹${rentSubtotal.toLocaleString('en-IN')}</span> <span class="text-success small ms-1">(Save ₹${savings.toLocaleString('en-IN')})</span>`;
+            } else {
+                calcRent.innerText = '₹' + rentSubtotal.toLocaleString('en-IN');
+            }
+        }
+
+        const preview = document.getElementById('negotiationPreview');
+        if (preview) {
+            if (isNegotiating && proposedRate && proposedRate > 0) {
+                preview.style.display = 'block';
+                if (proposedRate < dailyRent) {
+                    const savings = regularTotal - rentSubtotal;
+                    preview.innerHTML = `<i class="fa-solid fa-calculator me-1"></i> Proposed Total: <strong>₹${rentSubtotal.toLocaleString('en-IN')}</strong> for ${days} days • <strong class="text-success">Savings: ₹${savings.toLocaleString('en-IN')}</strong>`;
+                } else if (proposedRate === dailyRent) {
+                    preview.innerHTML = `<i class="fa-solid fa-circle-info me-1"></i> Matches original listing price of ₹${dailyRent.toLocaleString('en-IN')}/day.`;
+                } else {
+                    const extra = rentSubtotal - regularTotal;
+                    preview.innerHTML = `<i class="fa-solid fa-arrow-up me-1"></i> Premium offer: <strong>+₹${extra.toLocaleString('en-IN')}</strong> over standard rate.`;
+                }
+            } else {
+                preview.style.display = 'none';
+            }
+        }
 
         const calcDeposit = document.getElementById('calcDeposit');
         if (calcDeposit) calcDeposit.innerText = '₹' + securityDeposit.toLocaleString('en-IN');
