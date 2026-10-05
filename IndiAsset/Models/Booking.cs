@@ -67,7 +67,7 @@ namespace IndiAsset.Models
         public string? AssetTitle { get; set; }
         public string? AssetImageUrl { get; set; }
 
-        // Upfront Security Deposit Escrow Payment tracking
+        // Upfront Security Deposit & Rent Payment tracking
         public bool IsSecurityDepositPaid { get; set; } = false;
         public string? SecurityDepositPaymentId { get; set; }
         public string? SecurityDepositOrderId { get; set; }
@@ -75,6 +75,16 @@ namespace IndiAsset.Models
 
         [BsonRepresentation(BsonType.Decimal128)]
         public decimal SecurityDepositPaidAmount { get; set; }
+
+        public bool IsRentPaid { get; set; } = false;
+
+        [BsonRepresentation(BsonType.Decimal128)]
+        public decimal RentPaidAmount { get; set; }
+
+        public DateTime? RentPaidAt { get; set; }
+
+        [BsonRepresentation(BsonType.Decimal128)]
+        public decimal UpfrontTotalPaidAmount { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

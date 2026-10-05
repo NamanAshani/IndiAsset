@@ -1,8 +1,8 @@
 @model IndiAsset.Models.PayDepositViewModel
 @{
-    ViewData["Title"] = "Pay Escrow Security Deposit — IndiAsset";
+    ViewData["Title"] = "Secure Lease & Escrow Deposit — IndiAsset";
     var depositAmount = Model.SecurityDeposit;
-    var adjustedOnReturn = Math.Max(0, Model.TotalRent - Model.SecurityDeposit);
+    var totalPayable = Model.TotalAmount > 0 ? Model.TotalAmount : (Model.TotalRent + Model.SecurityDeposit);
 }
 
 <div class="container py-4">
@@ -11,7 +11,7 @@
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a asp-controller="Home" asp-action="Index">Home</a></li>
             <li class="breadcrumb-item"><a asp-controller="Booking" asp-action="MyBookings">My Leases</a></li>
-            <li class="breadcrumb-item active" aria-current="page">Escrow Security Deposit</li>
+            <li class="breadcrumb-item active" aria-current="page">Upfront Lease &amp; Escrow Deposit</li>
         </ol>
     </nav>
 
@@ -55,8 +55,8 @@
             <h2 class="fw-bold text-white mb-0">Secure Your Equipment Lease</h2>
             <p class="text-muted mb-0">
                 @(Model.Status == BookingStatus.Approved
-                    ? "Your lease request has been approved by the owner! You can negotiate the price or pay the escrow security deposit to activate your lease."
-                    : "Pay the refundable security deposit into escrow to finalize your lease, or negotiate the rental price with the owner.")
+                    ? "Your lease request has been approved by the owner! Pay the lease amount and refundable escrow deposit to activate dispatch."
+                    : "Pay the upfront lease rental fee and refundable escrow deposit to confirm your lease, or negotiate the rental rate.")
             </p>
         </div>
         <a asp-action="MyBookings" class="btn btn-outline-secondary rounded-pill px-4">
@@ -266,7 +266,7 @@
                                         <span class="input-group-text bg-dark border-secondary text-white">₹</span>
                                         <input type="number" name="negotiatedDailyRent" id="depositNegotiatedRateInput" class="form-control text-white fw-bold"
                                                value="@(Model.ProposedNegotiatedDailyRent ?? Model.DailyRent)"
-                                               min="1" max="100000000" required oninput="calcDepositNegotiation()" />
+                                               min="1" step="any" max="100000000" required oninput="calcDepositNegotiation()" />
                                         <span class="input-group-text bg-dark border-secondary text-muted small">/ day</span>
                                     </div>
                                 </div>
@@ -292,6 +292,8 @@
                 @Html.AntiForgeryToken()
                 <input type="hidden" asp-for="BookingId" />
                 <input type="hidden" asp-for="AssetId" />
+                <input type="hidden" asp-for="TotalAmount" id="rzpTotalAmount" />
+                <input type="hidden" asp-for="TotalRent" />
                 <input type="hidden" asp-for="SecurityDeposit" id="rzpDepositAmount" />
                 <input type="hidden" asp-for="RazorpayKeyId" id="rzpKeyId" />
                 <input type="hidden" asp-for="RazorpayOrderId" id="rzpOrderId" />
@@ -299,51 +301,60 @@
                 <input type="hidden" asp-for="RazorpaySignature" id="rzpSignature" />
                 <input type="hidden" asp-for="IsSimulationMode" id="isSimulationMode" />
 
-                <!-- 1. DEPOSIT SUMMARY CARD -->
+                <!-- 1. LEASE & ESCROW DEPOSIT SUMMARY CARD -->
                 <div class="card border-0 rounded-4 shadow-sm p-4 mb-4" style="background: linear-gradient(135deg, #1e2438 0%, #151824 100%); border: 1px solid rgba(59, 130, 246, 0.3) !important;">
                     <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                         <h5 class="fw-bold text-white mb-0">
-                            <i class="fa-brands fa-razorpay text-primary me-2"></i>Escrow Security Deposit Payment
+                            <i class="fa-brands fa-razorpay text-primary me-2"></i>Upfront Lease &amp; Escrow Deposit
                         </h5>
                         <span class="badge bg-warning text-dark rounded-pill px-3 py-1.5 fw-semibold small">
-                            <i class="fa-solid fa-lock me-1"></i> Required Before Approval
+                            <i class="fa-solid fa-lock me-1"></i> Required Before Dispatch
                         </span>
                     </div>
 
                     <p class="text-muted small mb-4">
-                        To protect equipment owners against damage or default, all renters deposit a refundable escrow security deposit before the lease request is reviewed and approved.
+                        In commercial equipment leasing, the rental fee and refundable escrow security deposit are secured upfront. The security deposit is held safely in escrow and 100% refunded when the equipment is returned in clean condition.
                     </p>
 
                     <!-- Financial Breakdown Box -->
                     <div class="row g-3 mb-4">
-                        <div class="col-md-6">
-                            <div class="p-3 rounded-3 h-100" style="background: rgba(234, 179, 8, 0.08); border: 1px solid rgba(234, 179, 8, 0.3);">
+                        <div class="col-md-4">
+                            <div class="p-3 rounded-3 h-100" style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.3);">
                                 <div class="small text-muted mb-1">
-                                    <i class="fa-solid fa-shield-halved text-warning me-1"></i> Security Deposit (Due Now)
+                                    <i class="fa-regular fa-calendar-check text-primary me-1"></i> Lease Rent (@Model.TotalDays @(Model.TotalDays == 1 ? "day" : "days"))
                                 </div>
-                                <div class="fs-2 fw-bold text-warning">₹@Model.SecurityDeposit.ToString("N0")</div>
-                                <div class="small text-white-50 mt-1">Paid once into Escrow</div>
+                                <div class="fs-3 fw-bold text-primary">₹@Model.TotalRent.ToString("N0")</div>
+                                <div class="small text-white-50 mt-1">Usage Fee (Paid Upfront)</div>
                             </div>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
+                            <div class="p-3 rounded-3 h-100" style="background: rgba(234, 179, 8, 0.08); border: 1px solid rgba(234, 179, 8, 0.3);">
+                                <div class="small text-muted mb-1">
+                                    <i class="fa-solid fa-shield-halved text-warning me-1"></i> Security Deposit
+                                </div>
+                                <div class="fs-3 fw-bold text-warning">₹@Model.SecurityDeposit.ToString("N0")</div>
+                                <div class="small text-white-50 mt-1">100% Refundable Escrow</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
                             <div class="p-3 rounded-3 h-100" style="background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.3);">
                                 <div class="small text-muted mb-1">
-                                    <i class="fa-solid fa-calculator text-success me-1"></i> Due Later on Return
+                                    <i class="fa-solid fa-receipt text-success me-1"></i> Total Due Now
                                 </div>
-                                <div class="fs-2 fw-bold text-success">₹@adjustedOnReturn.ToString("N0")</div>
-                                <div class="small text-white-50 mt-1">Rent minus Deposit Adjusted</div>
+                                <div class="fs-3 fw-bold text-success">₹@totalPayable.ToString("N0")</div>
+                                <div class="small text-white-50 mt-1">Rent + Escrow Deposit</div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Escrow Explanation & Adjustment Guarantee Notice -->
+                    <!-- Escrow Explanation & Guarantee Notice -->
                     <div class="alert alert-info border-0 rounded-3 p-3 mb-4" style="background: rgba(59, 130, 246, 0.1); border-left: 4px solid #3b82f6 !important; color: #93c5fd;">
                         <div class="d-flex align-items-start gap-2">
                             <i class="fa-solid fa-circle-check mt-1 fa-lg text-primary"></i>
                             <div>
-                                <div class="fw-bold text-white mb-1">Automatic Settlement Adjustment Policy</div>
+                                <div class="fw-bold text-white mb-1">Escrow Protection &amp; 100% Refund Guarantee</div>
                                 <div class="small text-white-50">
-                                    This ₹@Model.SecurityDeposit.ToString("N0") is held safely in escrow. When you finish using and return the asset, this deposit will be <strong>automatically adjusted against your total rental bill of ₹@Model.TotalRent.ToString("N0")</strong>, leaving only <strong>₹@adjustedOnReturn.ToString("N0")</strong> to be paid on return!
+                                    Your ₹@Model.SecurityDeposit.ToString("N0") security deposit is held in a protected escrow account, completely isolated from rental income. When you return the asset at the end of the lease, automated condition photo verification is performed, and <strong>100% of your deposit (₹@Model.SecurityDeposit.ToString("N0")) is refunded</strong> to your original payment source!
                                 </div>
                             </div>
                         </div>
@@ -354,13 +365,13 @@
                         <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
                             <div>
                                 <div class="fw-semibold text-white mb-0">
-                                    <i class="fa-solid fa-clock text-warning me-1"></i> Deposit Payment Pending
+                                    <i class="fa-solid fa-clock text-warning me-1"></i> Upfront Payment Pending
                                 </div>
-                                <small class="text-muted">Pay ₹@Model.SecurityDeposit.ToString("N0") securely via UPI, Cards, NetBanking or Wallets.</small>
+                                <small class="text-muted">Pay ₹@totalPayable.ToString("N0") (Rent ₹@Model.TotalRent.ToString("N0") + Escrow Deposit ₹@Model.SecurityDeposit.ToString("N0")) securely via UPI, Cards, or NetBanking.</small>
                             </div>
                             <div class="d-flex align-items-center gap-2">
                                 <button type="button" class="btn btn-primary rounded-pill px-4 py-2.5 fw-semibold shadow" id="btnPayDeposit" onclick="openRazorpayCheckout()">
-                                    <i class="fa-solid fa-credit-card me-1"></i> Pay ₹@Model.SecurityDeposit.ToString("N0") via Razorpay
+                                    <i class="fa-solid fa-credit-card me-1"></i> Pay ₹@totalPayable.ToString("N0") via Razorpay
                                 </button>
                                 <button type="button" class="btn btn-outline-secondary rounded-pill px-3 py-2 small" onclick="simulateTestPayment()" title="Click to test without external gateway">
                                     <i class="fa-solid fa-vial me-1"></i> Test Pay (Dev)
@@ -377,7 +388,7 @@
                                     <i class="fa-solid fa-check fa-lg"></i>
                                 </div>
                                 <div>
-                                    <div class="fw-bold text-success mb-0">Deposit Paid &amp; Escrow Secured!</div>
+                                    <div class="fw-bold text-success mb-0">Full Lease Payment &amp; Escrow Deposit Secured!</div>
                                     <small class="text-white-50">Transaction ID: <span id="confirmedPaymentId" class="font-monospace text-white fw-bold"></span></small>
                                 </div>
                             </div>
@@ -396,7 +407,7 @@
                         Cancel &amp; Pay Later
                     </a>
                     <button type="button" class="btn btn-primary rounded-pill px-5 py-2.5 fw-semibold shadow-sm fs-6" id="btnSubmitDeposit" onclick="handleDepositFormSubmit()">
-                        <i class="fa-solid fa-paper-plane me-1"></i> Confirm &amp; Submit for Owner Approval
+                        <i class="fa-solid fa-paper-plane me-1"></i> Confirm &amp; Submit Lease Agreement
                     </button>
                 </div>
             </form>
@@ -421,7 +432,7 @@
                                 <i class="fa-solid fa-flask me-1"></i> TEST SIMULATOR
                             </span>
                         </div>
-                        <small class="text-white-50">IndiAsset Escrow Protection &bull; Security Deposit</small>
+                        <small class="text-white-50">IndiAsset Equipment Lease &bull; Rent + Escrow Deposit</small>
                     </div>
                 </div>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -431,12 +442,13 @@
                 <!-- Order Summary Bar -->
                 <div class="d-flex justify-content-between align-items-center p-3 rounded-3 mb-3" style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08);">
                     <div>
-                        <small class="text-muted d-block">Security Deposit for</small>
+                        <small class="text-muted d-block">Upfront Lease Commitment</small>
                         <span class="fw-semibold text-white">@Model.AssetTitle</span>
                     </div>
                     <div class="text-end">
-                        <small class="text-muted d-block">Escrow Amount</small>
-                        <span class="fs-4 fw-bold text-warning">₹@Model.SecurityDeposit.ToString("N0")</span>
+                        <small class="text-muted d-block">Total Due Now</small>
+                        <span class="fs-4 fw-bold text-success">₹@totalPayable.ToString("N0")</span>
+                        <div class="small text-white-50" style="font-size:0.75rem;">Rent: ₹@Model.TotalRent.ToString("N0") + Escrow: ₹@Model.SecurityDeposit.ToString("N0")</div>
                     </div>
                 </div>
 
@@ -444,7 +456,7 @@
                 <div class="alert alert-info border-0 rounded-3 p-2.5 mb-3 d-flex align-items-start gap-2" style="background: rgba(59, 130, 246, 0.12); color: #93c5fd; font-size: 0.825rem;">
                     <i class="fa-solid fa-circle-info mt-1"></i>
                     <div>
-                        <strong>Developer Simulation Mode:</strong> Simulated gateway active for testing. Click Authorize &amp; Pay to simulate instant escrow deposit authorization.
+                        <strong>Developer Simulation Mode:</strong> Simulated gateway active for testing. Click Authorize &amp; Pay to simulate instant payment authorization for rent and escrow deposit.
                     </div>
                 </div>
 
@@ -519,7 +531,7 @@
 
                 <!-- Simulation Action Button -->
                 <button type="button" class="btn btn-primary w-100 py-2.5 rounded-pill fw-semibold shadow-sm" id="btnExecuteSimulatedPay" onclick="executeSimulatedRazorpayPayment()">
-                    <i class="fa-solid fa-shield-check me-1"></i> Authorize &amp; Pay ₹@Model.SecurityDeposit.ToString("N0") Deposit
+                    <i class="fa-solid fa-shield-check me-1"></i> Authorize &amp; Pay ₹@totalPayable.ToString("N0")
                 </button>
 
                 <div class="text-center mt-3">
@@ -558,7 +570,7 @@
             return;
         }
 
-        const amount = parseFloat(document.getElementById('rzpDepositAmount').value) || 100;
+        const amount = parseFloat(document.getElementById('rzpTotalAmount')?.value) || parseFloat('@totalPayable') || 100;
         const amountPaise = Math.round(amount * 100);
 
         const options = {
@@ -566,7 +578,7 @@
             "amount": amountPaise,
             "currency": "INR",
             "name": "IndiAsset Platform",
-            "description": "Escrow Security Deposit - @Model.AssetTitle",
+            "description": "Lease Rent & Escrow Deposit - @Model.AssetTitle",
             "image": "@(string.IsNullOrEmpty(Model.PrimaryImageUrl) ? "https://cdn-icons-png.flaticon.com/512/3135/3135715.png" : Model.PrimaryImageUrl)",
             "order_id": orderId,
             "handler": function (response) {
@@ -615,7 +627,7 @@
     function executeSimulatedRazorpayPayment() {
         const btn = document.getElementById('btnExecuteSimulatedPay');
         btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Authorizing Escrow Deposit...';
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Authorizing Upfront Payment...';
 
         setTimeout(function() {
             const simulatedPaymentId = "pay_sim_" + Math.random().toString(36).substring(2, 12);
@@ -630,7 +642,7 @@
             modalInstance.hide();
 
             btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-shield-check me-1"></i> Authorize &amp; Pay ₹@Model.SecurityDeposit.ToString("N0") Deposit';
+            btn.innerHTML = '<i class="fa-solid fa-shield-check me-1"></i> Authorize &amp; Pay ₹@totalPayable.ToString("N0")';
 
             markPaymentSuccess(simulatedPaymentId, orderId, signature);
         }, 600);

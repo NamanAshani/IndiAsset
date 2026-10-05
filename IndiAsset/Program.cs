@@ -81,6 +81,7 @@ builder.Services.AddSingleton<GridFsService>();
 builder.Services.AddSingleton<PresenceTracker>();
 builder.Services.AddScoped<AssetAvailabilityService>();
 builder.Services.AddScoped<IRazorpayService, RazorpayService>();
+builder.Services.AddScoped<IImageComparisonService, ImageComparisonService>();
 builder.Services.AddHostedService<MongoChangeStreamService>();
 
 // Register EmailSender

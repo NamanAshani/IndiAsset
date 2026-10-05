@@ -30,6 +30,21 @@ namespace IndiAsset.Models
         [BsonRepresentation(BsonType.Decimal128)]
         public decimal RefundAmount { get; set; }
 
+        public int QualityScore { get; set; } = 96;
+
+        [BsonRepresentation(BsonType.Decimal128)]
+        public decimal DiscrepancyPercentage { get; set; }
+
+        public string ConditionCategory { get; set; } = "Excellent";
+
+        public string? ComparisonSummary { get; set; }
+
+        public string CleanlinessStatus { get; set; } = "Clean & Well-Maintained";
+
+        public string FunctionalStatus { get; set; } = "Operational & Complete";
+
+        public bool IsDamageDetected => QualityScore < 90 || DamageDeduction > 0;
+
         public string? InspectionNotes { get; set; }
 
         public bool IsInspected { get; set; } = false;

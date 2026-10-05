@@ -65,15 +65,28 @@
                 </div>
             </div>
 
+            @if (TempData["SuccessMessage"] != null)
+            {
+                <div class="alert alert-success alert-dismissible fade show rounded-4 border-0 shadow-sm mb-4" role="alert">
+                    <i class="fa-solid fa-circle-check me-2"></i> @TempData["SuccessMessage"]
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            }
+
             <!-- Health & Settlement Summary Banner -->
+            @{
+                string scoreColorClass = Model.ConditionScore >= 90 ? "text-success" : (Model.ConditionScore >= 80 ? "text-info" : (Model.ConditionScore >= 65 ? "text-warning" : "text-danger"));
+                string badgeBgClass = Model.ConditionScore >= 90 ? "bg-success" : (Model.ConditionScore >= 80 ? "bg-info" : (Model.ConditionScore >= 65 ? "bg-warning" : "bg-danger"));
+                string scoreLabel = Model.ConditionScore >= 90 ? "Certified Quality" : (Model.ConditionScore >= 80 ? "Good Condition" : (Model.ConditionScore >= 65 ? "Moderate Wear" : "Damage Detected"));
+            }
             <div class="card border-0 rounded-4 shadow-sm p-4 mb-4" style="background: linear-gradient(135deg, #1e2640 0%, #1a1d27 100%); border: 1px solid rgba(96, 165, 250, 0.25)!important;">
                 <div class="row align-items-center g-4">
                     <div class="col-md-3 text-center border-end border-secondary border-opacity-25">
-                        <div class="display-4 fw-bold text-success mb-0">@Model.ConditionScore%</div>
-                        <span class="badge bg-success bg-opacity-25 text-success rounded-pill px-3 py-1 fw-bold mt-1">
-                            <i class="fa-solid fa-circle-check me-1"></i> Excellent Condition
+                        <div class="display-4 fw-bold @scoreColorClass mb-0">@Model.ConditionScore%</div>
+                        <span class="badge @badgeBgClass bg-opacity-25 @scoreColorClass rounded-pill px-3 py-1 fw-bold mt-1">
+                            <i class="fa-solid @(Model.ConditionScore >= 90 ? "fa-circle-check" : (Model.ConditionScore >= 80 ? "fa-shield-halved" : "fa-triangle-exclamation")) me-1"></i> @scoreLabel
                         </span>
-                        <small class="text-muted d-block mt-2">Overall Quality Score</small>
+                        <small class="text-muted d-block mt-2">Automated Visual Match</small>
                     </div>
 
                     <div class="col-md-5">
@@ -92,13 +105,28 @@
                     </div>
 
                     <div class="col-md-4 text-md-end">
-                        <span class="small text-muted d-block mb-1">Security Deposit Status</span>
-                        <div class="fs-4 fw-bold text-primary mb-1">
-                            ₹@Model.RecommendedRefundAmount.ToString("N0") settled
-                        </div>
-                        <span class="badge bg-success text-white rounded-pill px-3 py-1.5 fw-semibold small">
-                            <i class="fa-solid fa-check me-1"></i> Escrow Deposit Settled
-                        </span>
+                        <span class="small text-muted d-block mb-1">Deposit Settlement</span>
+                        @if (Model.DamageDeduction > 0)
+                        {
+                            <div class="fs-5 fw-bold text-danger mb-0">
+                                -₹@Model.DamageDeduction.ToString("N0") Deducted
+                            </div>
+                            <div class="small text-success fw-bold mb-1">
+                                Net Refund: ₹@Model.RecommendedRefundAmount.ToString("N0")
+                            </div>
+                            <span class="badge bg-danger bg-opacity-25 text-danger border border-danger border-opacity-25 rounded-pill px-3 py-1 fw-semibold small">
+                                <i class="fa-solid fa-triangle-exclamation me-1"></i> Damage Deduction Applied
+                            </span>
+                        }
+                        else
+                        {
+                            <div class="fs-4 fw-bold text-success mb-1">
+                                ₹@Model.RecommendedRefundAmount.ToString("N0") Refunded
+                            </div>
+                            <span class="badge bg-success text-white rounded-pill px-3 py-1.5 fw-semibold small">
+                                <i class="fa-solid fa-check me-1"></i> Full Deposit Refund (₹0 Deductions)
+                            </span>
+                        }
                     </div>
                 </div>
             </div>
@@ -224,32 +252,105 @@
             <!-- Return Remarks & Inspection Log -->
             <div class="card border-0 rounded-4 shadow-sm p-4 mb-4" style="background-color: #1a1d27;">
                 <h5 class="fw-bold text-white mb-3">
-                    <i class="fa-solid fa-clipboard-list text-primary me-2"></i>Return Inspection Remarks
+                    <i class="fa-solid fa-clipboard-list text-primary me-2"></i>Return Inspection &amp; Damage Analysis Log
                 </h5>
                 <div class="p-3 rounded-3 bg-dark border border-secondary border-opacity-25 text-light small mb-3">
-                    @(Model.LeaseReturn?.ConditionAfter ?? "Asset returned in clean, operational condition with verified photos.")
+                    <strong>Renter's Return Note:</strong> @(Model.LeaseReturn?.ConditionAfter ?? "Asset returned in clean, operational condition with verified photos.")
                 </div>
+
+                @if (!string.IsNullOrEmpty(Model.LeaseReturn?.ComparisonSummary))
+                {
+                    <div class="p-3 rounded-3 mb-3 @(Model.DamageDeduction > 0 ? "bg-danger bg-opacity-10 border border-danger border-opacity-25" : "bg-success bg-opacity-10 border border-success border-opacity-25")">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="fa-solid @(Model.DamageDeduction > 0 ? "fa-triangle-exclamation text-danger" : "fa-circle-check text-success") mt-1"></i>
+                            <div>
+                                <strong class="text-white">Automated Photo Comparison Analysis:</strong>
+                                <p class="text-muted mb-0 small mt-1">@Model.LeaseReturn.ComparisonSummary</p>
+                            </div>
+                        </div>
+                    </div>
+                }
+
                 <div class="row g-3">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <div class="metric-badge">
                             <span class="text-muted small d-block mb-1">Returned At</span>
                             <span class="fw-semibold text-white">@(Model.LeaseReturn?.ReturnedAt?.ToLocalTime().ToString("dd MMM yyyy, hh:mm tt") ?? DateTime.Now.ToString("dd MMM yyyy"))</span>
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <div class="metric-badge">
-                            <span class="text-muted small d-block mb-1">Damage Deductions</span>
-                            <span class="fw-semibold text-success">₹@(Model.LeaseReturn?.DamageDeduction.ToString("N0") ?? "0") (Zero Deductions)</span>
+                            <span class="text-muted small d-block mb-1">Escrow Deposit</span>
+                            <span class="fw-semibold text-info">₹@Model.SecurityDeposit.ToString("N0")</span>
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <div class="metric-badge">
-                            <span class="text-muted small d-block mb-1">Escrow Settlement</span>
-                            <span class="fw-semibold text-primary">₹@(Model.RecommendedRefundAmount.ToString("N0")) settled</span>
+                            <span class="text-muted small d-block mb-1">Damage Deduction</span>
+                            @if (Model.DamageDeduction > 0)
+                            {
+                                <span class="fw-semibold text-danger">-₹@Model.DamageDeduction.ToString("N0")</span>
+                            }
+                            else
+                            {
+                                <span class="fw-semibold text-success">₹0 (Zero Damage)</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="metric-badge">
+                            <span class="text-muted small d-block mb-1">Net Refund to Renter</span>
+                            <span class="fw-semibold text-success">₹@Model.RecommendedRefundAmount.ToString("N0")</span>
                         </div>
                     </div>
                 </div>
             </div>
+
+            <!-- Owner Damage Deduction Adjustment Panel -->
+            @if (Model.IsOwner)
+            {
+                <div class="card border-0 rounded-4 shadow-sm p-4 mb-4" style="background: #181d29; border: 1px solid rgba(255, 255, 255, 0.08) !important;">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                        <div>
+                            <h5 class="fw-bold text-white mb-1">
+                                <i class="fa-solid fa-sliders text-primary me-2"></i>Owner Settlement Controls
+                            </h5>
+                            <p class="text-muted small mb-0">As the asset owner, you can adjust the damage deduction or waive minor scratches before final release.</p>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary rounded-pill px-3" type="button" data-bs-toggle="collapse" data-bs-target="#adjustDeductionCollapse">
+                            <i class="fa-solid fa-pen-to-square me-1"></i> Adjust Deduction
+                        </button>
+                    </div>
+
+                    <div class="collapse" id="adjustDeductionCollapse">
+                        <form asp-controller="Booking" asp-action="AdjustDamageDeduction" method="post" class="mt-3 pt-3 border-top border-secondary border-opacity-25">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="bookingId" value="@Model.Booking.Id" />
+                            <div class="row g-3 align-items-end">
+                                <div class="col-md-4">
+                                    <label class="form-label text-muted small">Damage Deduction (₹)</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-dark border-secondary text-white">₹</span>
+                                        <input type="number" name="damageDeduction" class="form-control bg-dark border-secondary text-white" 
+                                               value="@Model.DamageDeduction" min="0" max="@Model.SecurityDeposit" step="100" required />
+                                    </div>
+                                    <div class="form-text text-muted small">Max: ₹@Model.SecurityDeposit.ToString("N0") (Deposit amount)</div>
+                                </div>
+                                <div class="col-md-5">
+                                    <label class="form-label text-muted small">Adjustment Note / Reason</label>
+                                    <input type="text" name="reason" class="form-control bg-dark border-secondary text-white" 
+                                           placeholder="e.g. Waived minor scratch / Agreed after phone call" />
+                                </div>
+                                <div class="col-md-3">
+                                    <button type="submit" class="btn btn-warning w-100 rounded-pill fw-semibold py-2">
+                                        <i class="fa-solid fa-check me-1"></i> Save Adjustment
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            }
 
             <!-- ====================================================== -->
             <!-- USER RATING & REVIEW CARD -->

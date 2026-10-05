@@ -123,17 +123,45 @@ namespace IndiAsset.Services
         }
 
         /// <summary>
-        /// Checks if requested lease dates conflict with an existing active or approved booking.
+        /// Checks if requested lease dates conflict with an existing active, approved, or deposit-secured booking.
+        /// Optionally excludes a specific booking ID (e.g. when validating if the current booking itself can be approved).
         /// </summary>
-        public async Task<bool> IsDateRangeAvailableAsync(string assetId, DateTime start, DateTime end)
+        public async Task<bool> IsDateRangeAvailableAsync(string assetId, DateTime start, DateTime end, string? excludeBookingId = null)
         {
-            var conflicts = await _mongoDbService.Bookings
-                .Find(b => b.AssetId == assetId &&
-                          (b.Status == BookingStatus.Active || b.Status == BookingStatus.Approved) &&
-                          b.StartDate <= end && b.EndDate >= start)
-                .CountDocumentsAsync();
+            var filter = Builders<Booking>.Filter.Eq(b => b.AssetId, assetId) &
+                         (Builders<Booking>.Filter.Eq(b => b.Status, BookingStatus.Active) |
+                          Builders<Booking>.Filter.Eq(b => b.Status, BookingStatus.Approved) |
+                          (Builders<Booking>.Filter.Eq(b => b.Status, BookingStatus.Pending) & Builders<Booking>.Filter.Eq(b => b.IsSecurityDepositPaid, true))) &
+                         Builders<Booking>.Filter.Lte(b => b.StartDate, end) &
+                         Builders<Booking>.Filter.Gte(b => b.EndDate, start);
 
+            if (!string.IsNullOrEmpty(excludeBookingId))
+            {
+                filter &= Builders<Booking>.Filter.Ne(b => b.Id, excludeBookingId);
+            }
+
+            var conflicts = await _mongoDbService.Bookings.CountDocumentsAsync(filter);
             return conflicts == 0;
+        }
+
+        /// <summary>
+        /// Retrieves the list of overlapping confirmed/active bookings for an asset within the specified date range.
+        /// </summary>
+        public async Task<List<Booking>> GetOverlappingBookingsAsync(string assetId, DateTime start, DateTime end, string? excludeBookingId = null)
+        {
+            var filter = Builders<Booking>.Filter.Eq(b => b.AssetId, assetId) &
+                         (Builders<Booking>.Filter.Eq(b => b.Status, BookingStatus.Active) |
+                          Builders<Booking>.Filter.Eq(b => b.Status, BookingStatus.Approved) |
+                          (Builders<Booking>.Filter.Eq(b => b.Status, BookingStatus.Pending) & Builders<Booking>.Filter.Eq(b => b.IsSecurityDepositPaid, true))) &
+                         Builders<Booking>.Filter.Lte(b => b.StartDate, end) &
+                         Builders<Booking>.Filter.Gte(b => b.EndDate, start);
+
+            if (!string.IsNullOrEmpty(excludeBookingId))
+            {
+                filter &= Builders<Booking>.Filter.Ne(b => b.Id, excludeBookingId);
+            }
+
+            return await _mongoDbService.Bookings.Find(filter).ToListAsync();
         }
     }
 }

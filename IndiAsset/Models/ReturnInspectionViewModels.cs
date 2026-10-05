@@ -30,6 +30,7 @@ namespace IndiAsset.Models
         public decimal DepositAdjusted { get; set; }
         public decimal ExcessDepositRefund { get; set; }
         public bool IsDepositAlreadyPaid { get; set; }
+        public bool IsRentPaid { get; set; }
 
         // Razorpay payment fields
         public string? RazorpayKeyId { get; set; }
@@ -74,11 +75,15 @@ namespace IndiAsset.Models
         public List<string> ReturnImages { get; set; } = new();
 
         public int ConditionScore { get; set; } = 96;
+        public decimal DiscrepancyPercentage { get; set; }
         public string ConditionSummary { get; set; } = "Excellent — No Structural Damage Detected";
         public string CleanlinessStatus { get; set; } = "Clean & Well Maintained";
         public string FunctionalStatus { get; set; } = "Operational & Complete";
         public bool FullDepositRefundRecommended { get; set; } = true;
+        public decimal SecurityDeposit { get; set; }
+        public decimal DamageDeduction { get; set; }
         public decimal RecommendedRefundAmount { get; set; }
+        public bool IsDamageDetected => ConditionScore < 90 || DamageDeduction > 0;
     }
 
     public class PayDepositViewModel
@@ -104,6 +109,9 @@ namespace IndiAsset.Models
         public decimal OriginalTotalRent { get; set; }
         public decimal SecurityDeposit { get; set; }
         public decimal TotalAmount { get; set; }
+        public decimal TotalUpfrontAmount => (IsRentPaid ? 0 : TotalRent) + (IsSecurityDepositPaid ? 0 : SecurityDeposit);
+        public bool IsRentPaid { get; set; }
+        public bool IsSecurityDepositPaid { get; set; }
 
         // Negotiation fields for PayDeposit view
         public decimal? NegotiatedDailyRent { get; set; }

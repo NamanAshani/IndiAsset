@@ -112,9 +112,19 @@
                         <div class="small text-muted mb-1">
                             @Model.StartDate.ToString("dd MMM yyyy") &ndash; @Model.EndDate.ToString("dd MMM yyyy")
                         </div>
-                        <div class="fw-bold text-primary fs-5">
-                            Settlement: ₹@Model.AmountToPay.ToString("N0")
-                        </div>
+                        @if (Model.AmountToPay <= 0)
+                        {
+                            <div class="fw-bold text-success fs-5">
+                                <i class="fa-solid fa-shield-heart me-1"></i> Refund: ₹@Model.SecurityDeposit.ToString("N0")
+                            </div>
+                            <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25 rounded-pill px-2.5 py-0.5 small">Rent Paid Upfront</span>
+                        }
+                        else
+                        {
+                            <div class="fw-bold text-primary fs-5">
+                                Settlement: ₹@Model.AmountToPay.ToString("N0")
+                            </div>
+                        }
                     </div>
                 </div>
             </div>
@@ -241,69 +251,53 @@
                     </div>
                 </div>
 
-                <!-- 5. LEASE RETURN SETTLEMENT & RAZORPAY PAYMENT (MANDATORY TO RETURN ASSET) -->
+                <!-- 5. ESCROW DEPOSIT RETURN & SETTLEMENT -->
                 <div class="card border-0 rounded-4 shadow-sm p-4 mb-4" style="background: linear-gradient(135deg, #1b2138 0%, #151824 100%); border: 1px solid rgba(59, 130, 246, 0.3) !important;">
                     <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                         <h5 class="fw-bold text-white mb-0">
-                            <i class="fa-brands fa-razorpay text-primary me-2"></i>5. Lease Settlement Payment (Razorpay)
+                            <i class="fa-solid fa-shield-halved text-primary me-2"></i>5. Escrow Deposit Return &amp; Settlement
                         </h5>
-                        <span class="badge bg-primary text-white rounded-pill px-3 py-1.5 fw-semibold small">
-                            <i class="fa-solid fa-shield-halved me-1"></i> Payment Required on Return
+                        <span class="badge bg-success text-white rounded-pill px-3 py-1.5 fw-semibold small">
+                            <i class="fa-solid fa-shield-check me-1"></i> Rent Paid Upfront &bull; Escrow Secured
                         </span>
                     </div>
 
                     <p class="text-muted small mb-4">
-                        To finalize the equipment return and release the asset, please complete the lease settlement payment via Razorpay. Security deposit remains protected in escrow until physical visual verification.
+                        In commercial equipment leasing, your usage rental fee was settled upfront. Your escrow security deposit is strictly protected and will be refunded upon photographic condition verification.
                     </p>
 
                     <div class="row g-3 mb-4">
                         <div class="col-md-4">
                             <div class="payment-highlight-box h-100">
-                                <div class="small text-muted mb-1">Rental Total (@Model.TotalDays days &times; ₹@Model.DailyRent.ToString("N0"))</div>
+                                <div class="small text-muted mb-1">Lease Rental Fee (@Model.TotalDays days)</div>
                                 <div class="fs-4 fw-bold text-white">₹@Model.TotalRent.ToString("N0")</div>
+                                <small class="text-success"><i class="fa-solid fa-circle-check me-1"></i>Paid upfront before dispatch</small>
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="payment-highlight-box h-100">
-                                <div class="small text-muted mb-1">Pre-Paid Escrow Deposit Adjusted</div>
-                                <div class="fs-4 fw-bold text-info">-₹@Model.DepositAdjusted.ToString("N0")</div>
-                                @if (Model.IsDepositAlreadyPaid)
-                                {
-                                    <small class="text-success"><i class="fa-solid fa-shield-check me-1"></i>Paid into escrow prior to lease</small>
-                                }
+                                <div class="small text-muted mb-1">Escrow Security Deposit</div>
+                                <div class="fs-4 fw-bold text-warning">₹@Model.SecurityDeposit.ToString("N0")</div>
+                                <small class="text-white-50"><i class="fa-solid fa-vault me-1"></i>Held safely in escrow</small>
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="payment-highlight-box h-100" style="background: rgba(34, 197, 94, 0.08); border-color: rgba(34, 197, 94, 0.3);">
-                                <div class="small text-muted mb-1">Net Settlement Payable</div>
-                                <div class="fs-4 fw-bold text-success">₹@Model.AmountToPay.ToString("N0")</div>
-                                @if (Model.ExcessDepositRefund > 0)
-                                {
-                                    <small class="text-warning"><i class="fa-solid fa-arrow-rotate-left me-1"></i>₹@Model.ExcessDepositRefund.ToString("N0") excess refund to be processed</small>
-                                }
-                                else
-                                {
-                                    <small class="text-muted">(Rental ₹@Model.TotalRent.ToString("N0") - Deposit ₹@Model.DepositAdjusted.ToString("N0"))</small>
-                                }
+                                <div class="small text-muted mb-1">Deposit Refund Status</div>
+                                <div class="fs-4 fw-bold text-success">100% Eligible</div>
+                                <small class="text-success"><i class="fa-solid fa-circle-check me-1"></i>₹@Model.SecurityDeposit.ToString("N0") on clean return</small>
                             </div>
                         </div>
                     </div>
 
                     @if (Model.AmountToPay <= 0)
                     {
-                        <div class="alert alert-success rounded-3 p-3 mb-3 d-flex align-items-center gap-3 border border-success border-opacity-25" style="background: rgba(34, 197, 94, 0.12);">
-                            <i class="fa-solid fa-circle-check fa-2x text-success"></i>
+                        <div class="alert alert-success rounded-3 p-3 mb-0 d-flex align-items-center gap-3 border border-success border-opacity-25" style="background: rgba(34, 197, 94, 0.12);">
+                            <i class="fa-solid fa-shield-heart fa-2x text-success"></i>
                             <div>
-                                <div class="fw-bold text-success">Escrow Security Deposit Fully Covers Rental Fee!</div>
+                                <div class="fw-bold text-success">Zero Additional Charges Due at Return</div>
                                 <div class="small text-white-70">
-                                    Your upfront escrow security deposit of ₹@Model.DepositAdjusted.ToString("N0") fully covers the total rental charge of ₹@Model.TotalRent.ToString("N0").
-                                    No additional gateway settlement payment is required.
-                                    @if (Model.ExcessDepositRefund > 0)
-                                    {
-                                        <span class="d-block mt-1 text-warning fw-semibold">
-                                            <i class="fa-solid fa-arrow-rotate-left me-1"></i>Remaining excess deposit of ₹@Model.ExcessDepositRefund.ToString("N0") will be returned to your source account.
-                                        </span>
-                                    }
+                                    Your equipment rental was paid upfront. Upload your post-use photos above to generate the automated visual comparison report. If returned in normal operational condition, <strong>100% of your ₹@Model.SecurityDeposit.ToString("N0") escrow security deposit will be promptly refunded</strong> to your source payment account!
                                 </div>
                             </div>
                         </div>
@@ -317,7 +311,7 @@
                                     <div class="fw-semibold text-white mb-0">
                                         <i class="fa-solid fa-clock text-warning me-1"></i> Return Settlement Pending
                                     </div>
-                                    <small class="text-muted">Pay ₹@Model.AmountToPay.ToString("N0") (Rent ₹@Model.TotalRent.ToString("N0") minus Deposit ₹@Model.DepositAdjusted.ToString("N0")) via Razorpay.</small>
+                                    <small class="text-muted">Pay ₹@Model.AmountToPay.ToString("N0") via Razorpay to complete asset return.</small>
                                 </div>
                                 <div class="d-flex align-items-center gap-2">
                                     <button type="button" class="btn btn-primary rounded-pill px-4 py-2.5 fw-semibold shadow" id="btnRazorpayPay" onclick="openRazorpayCheckout()">

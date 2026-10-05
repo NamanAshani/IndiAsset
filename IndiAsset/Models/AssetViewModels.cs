@@ -184,5 +184,9 @@ namespace IndiAsset.Models
         public bool IsSecurityDepositPaid { get; set; }
         public decimal SecurityDepositPaidAmount { get; set; }
         public DateTime? SecurityDepositPaidAt { get; set; }
+        public bool IsRentPaid { get; set; }
+        public decimal RentPaidAmount { get; set; }
+        public DateTime? RentPaidAt { get; set; }
+        public decimal UpfrontTotalAmount => TotalRent + SecurityDeposit;
     }
 }
