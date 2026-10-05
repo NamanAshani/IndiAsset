@@ -84,6 +84,43 @@ namespace IndiAsset.Models
         public decimal DamageDeduction { get; set; }
         public decimal RecommendedRefundAmount { get; set; }
         public bool IsDamageDetected => ConditionScore < 90 || DamageDeduction > 0;
+
+        // Dispatch Baseline info
+        public bool IsBaselineFromDispatch { get; set; }
+        public DateTime? DispatchedAt { get; set; }
+        public string? DispatchNotes { get; set; }
+
+        // Dispute workflow properties
+        public bool IsDisputed { get; set; }
+        public string? DisputeReason { get; set; }
+        public DateTime? DisputedAt { get; set; }
+        public List<string> DisputeImages { get; set; } = new();
+        public string? DisputeStatus { get; set; }
+        public string? DisputeResolutionNotes { get; set; }
+    }
+
+    public class DispatchCheckInViewModel
+    {
+        [Required]
+        public string BookingId { get; set; } = string.Empty;
+        public string AssetId { get; set; } = string.Empty;
+        public string AssetTitle { get; set; } = string.Empty;
+        public string AssetCategory { get; set; } = string.Empty;
+        public string? PrimaryImageUrl { get; set; }
+
+        public string RenterName { get; set; } = string.Empty;
+        public DateTime StartDate { get; set; }
+        public DateTime EndDate { get; set; }
+        public int TotalDays { get; set; }
+        public decimal TotalRent { get; set; }
+        public decimal SecurityDeposit { get; set; }
+
+        [Required(ErrorMessage = "Please upload at least 1 dispatch handover photo of the equipment")]
+        public List<IFormFile> DispatchPhotos { get; set; } = new();
+
+        [StringLength(1000)]
+        [Display(Name = "Dispatch Handover Remarks")]
+        public string? DispatchNotes { get; set; }
     }
 
     public class PayDepositViewModel

@@ -613,86 +613,79 @@
                         </div>
                     }
 
-                    <!-- 3. SELF-LEASE / RESERVE MACHINE FOR INTERNAL OPERATIONS -->
+                    <!-- 3. MAINTENANCE & BLACKOUT CALENDAR WINDOWS -->
                     <div class="card rounded-4 p-4 mb-4 border-0 shadow-sm" style="background: #1e2130; border: 1px solid rgba(255,255,255,0.08)!important;">
                         <div class="d-flex align-items-center justify-content-between mb-2">
                             <h5 class="fw-bold text-white mb-0">
-                                <i class="fa-solid fa-calendar-check text-warning me-2"></i> Internal Deployment
+                                <i class="fa-solid fa-wrench text-warning me-2"></i> Maintenance &amp; Blackout
                             </h5>
                             <span class="badge bg-warning bg-opacity-25 text-warning border border-warning border-opacity-25 rounded-pill px-2.5 py-1">
-                                Self-Lease
+                                Calendar Block
                             </span>
                         </div>
                         <p class="text-muted small mb-3">
-                            Need this equipment for your own project or scheduled maintenance? Reserve it on the platform calendar.
+                            Block dates on the platform calendar for planned servicing, repairs, or private deployment. Renters will not be able to book these dates.
                         </p>
 
-                        <div class="alert p-2.5 rounded-3 mb-3 small" style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.25); color: #86efac;">
-                            <i class="fa-solid fa-shield-check me-1"></i>
-                            <strong>No Deposit Required:</strong> Self-leasing bypasses escrow security deposit and auto-approves immediately.
-                        </div>
+                        @if (Model.Asset.MaintenanceWindows != null && Model.Asset.MaintenanceWindows.Any())
+                        {
+                            <div class="mb-3">
+                                <span class="text-white-50 small fw-semibold d-block mb-2">Active Scheduled Blackout Dates:</span>
+                                @foreach (var mw in Model.Asset.MaintenanceWindows.OrderBy(w => w.StartDate))
+                                {
+                                    <div class="p-2.5 rounded-3 mb-2 small bg-dark border border-secondary border-opacity-25 d-flex align-items-center justify-content-between">
+                                        <div>
+                                            <div class="text-white fw-semibold">
+                                                <i class="fa-regular fa-calendar-xmark text-warning me-1"></i>
+                                                @mw.StartDate.ToString("dd MMM yyyy") &ndash; @mw.EndDate.ToString("dd MMM yyyy")
+                                            </div>
+                                            <div class="text-muted" style="font-size: 0.75rem;">@mw.Reason</div>
+                                        </div>
+                                        <form asp-action="RemoveMaintenanceWindow" method="post" class="d-inline" onsubmit="return confirm('Remove this blackout window?');">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="assetId" value="@Model.Asset.Id" />
+                                            <input type="hidden" name="windowId" value="@mw.Id" />
+                                            <button type="submit" class="btn btn-sm btn-outline-danger py-0.5 px-2 rounded-pill" title="Remove blackout">
+                                                <i class="fa-solid fa-trash-can"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                }
+                            </div>
+                        }
 
-                        <form method="post" asp-controller="Booking" asp-action="Create" id="leaseForm">
+                        <form method="post" asp-action="AddMaintenanceWindow">
                             @Html.AntiForgeryToken()
-                            <input type="hidden" name="AssetId" value="@Model.Asset.Id" />
+                            <input type="hidden" name="assetId" value="@Model.Asset.Id" />
 
                             <div class="mb-3">
                                 <label class="form-label fw-semibold small text-muted">
-                                    <i class="fa-regular fa-calendar me-1"></i> Reserve Start Date
+                                    <i class="fa-regular fa-calendar me-1"></i> Blackout Start Date
                                 </label>
-                                <input type="date" id="startDate" name="StartDate"
-                                       value="@Model.BookingForm.StartDate.ToString("yyyy-MM-dd")"
+                                <input type="date" name="startDate"
+                                       value="@DateTime.UtcNow.Date.AddDays(1).ToString("yyyy-MM-dd")"
                                        min="@DateTime.UtcNow.ToString("yyyy-MM-dd")"
-                                       class="form-control rounded-3" required onchange="onStartDateChanged()" />
-                            </div>
-
-                            <div class="mb-3">
-                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                    <label class="form-label fw-semibold small text-muted mb-0">
-                                        <i class="fa-solid fa-clock me-1"></i> Duration
-                                    </label>
-                                    <span class="badge bg-primary bg-opacity-25 text-primary border border-primary border-opacity-25 small" id="daysBadge">3 Days</span>
-                                </div>
-                                <div class="input-group">
-                                    <button class="btn btn-outline-secondary" type="button" onclick="adjustDays(-1)">
-                                        <i class="fa-solid fa-minus"></i>
-                                    </button>
-                                    <input type="number" id="leaseDays" name="NumberOfDays"
-                                           value="@Model.BookingForm.NumberOfDays"
-                                           min="1" max="365"
-                                           class="form-control rounded-0 text-center fw-bold text-white fs-5"
-                                           required onchange="onDaysChanged()" oninput="onDaysChanged()" />
-                                    <button class="btn btn-outline-secondary" type="button" onclick="adjustDays(1)">
-                                        <i class="fa-solid fa-plus"></i>
-                                    </button>
-                                </div>
-                                <div class="d-flex gap-1.5 flex-wrap mt-2">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary py-0.5 px-2 small rounded-pill" onclick="setPresetDays(1)">1 Day</button>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary py-0.5 px-2 small rounded-pill" onclick="setPresetDays(3)">3 Days</button>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary py-0.5 px-2 small rounded-pill" onclick="setPresetDays(7)">1 Week</button>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary py-0.5 px-2 small rounded-pill" onclick="setPresetDays(15)">15 Days</button>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary py-0.5 px-2 small rounded-pill" onclick="setPresetDays(30)">1 Month</button>
-                                </div>
+                                       class="form-control rounded-3" required />
                             </div>
 
                             <div class="mb-3">
                                 <label class="form-label fw-semibold small text-muted">
-                                    <i class="fa-solid fa-flag-checkered me-1"></i> Release / Return Date
+                                    <i class="fa-solid fa-flag-checkered me-1"></i> Blackout End Date
                                 </label>
-                                <input type="date" id="endDate" name="EndDate"
-                                       value="@Model.BookingForm.EndDate.ToString("yyyy-MM-dd")"
+                                <input type="date" name="endDate"
+                                       value="@DateTime.UtcNow.Date.AddDays(4).ToString("yyyy-MM-dd")"
                                        min="@DateTime.UtcNow.AddDays(1).ToString("yyyy-MM-dd")"
-                                       class="form-control rounded-3" required onchange="onEndDateChanged()" />
+                                       class="form-control rounded-3" required />
                             </div>
 
                             <div class="mb-3">
-                                <label class="form-label fw-semibold small text-muted">Internal Operation Notes</label>
-                                <textarea name="Notes" class="form-control rounded-3" rows="2" placeholder="e.g. Scheduled quarterly service, deployed to Site B..."></textarea>
+                                <label class="form-label fw-semibold small text-muted">Reason / Service Type</label>
+                                <input type="text" name="reason" class="form-control rounded-3" placeholder="e.g. 500-hour hydraulic service, Site deployment..." />
                             </div>
 
-                            <button type="submit" id="btnSubmitLease" class="btn btn-warning w-100 rounded-3 py-2.5 fw-semibold shadow-sm text-dark fs-6">
-                                <i id="btnSubmitIcon" class="fa-solid fa-calendar-check me-1.5"></i>
-                                <span id="btnSubmitText">Reserve Asset for Internal Use (<span id="btnDurationText">3 Days</span>)</span>
+                            <button type="submit" class="btn btn-warning w-100 rounded-3 py-2 fw-semibold shadow-sm text-dark fs-6">
+                                <i class="fa-solid fa-calendar-xmark me-1.5"></i>
+                                Schedule Maintenance Blackout
                             </button>
                         </form>
                     </div>

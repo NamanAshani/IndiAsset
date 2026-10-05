@@ -1,4 +1,4 @@
-﻿
+
 namespace IndiAsset.Models
 {
     public enum BookingStatus
@@ -8,6 +8,7 @@ namespace IndiAsset.Models
         Rejected,
         Cancelled,
         Active,
+        Overdue,
         Completed
     }
 

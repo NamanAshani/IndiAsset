@@ -35,11 +35,23 @@ namespace IndiAsset.Models
         [BsonElement("Specifications")]
         public List<AssetSpecification> Specifications { get; set; } = new();
 
+        // Dedicated maintenance & blackout calendar windows (replaces dummy self-leasing)
+        public List<MaintenanceWindow> MaintenanceWindows { get; set; } = new();
+
         public bool IsAvailable { get; set; } = true;
         public bool IsApproved { get; set; } = true;
         public bool IsDeleted { get; set; } = false;
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    }
+
+    public class MaintenanceWindow
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString("N");
+        public DateTime StartDate { get; set; }
+        public DateTime EndDate { get; set; }
+        public string? Reason { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 }

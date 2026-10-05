@@ -95,6 +95,18 @@
                             Lease: <strong>@Model.Booking.StartDate.ToString("dd MMM yyyy") &ndash; @Model.Booking.EndDate.ToString("dd MMM yyyy")</strong> (@Model.Booking.TotalDays Days)
                         </p>
                         <div class="d-flex flex-wrap gap-2">
+                            @if (Model.IsBaselineFromDispatch)
+                            {
+                                <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25 small">
+                                    <i class="fa-solid fa-camera me-1"></i> Handover Dispatch Baseline
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary bg-opacity-25 text-white border border-secondary border-opacity-25 small">
+                                    <i class="fa-solid fa-images me-1"></i> Catalog Baseline
+                                </span>
+                            }
                             <span class="badge bg-secondary bg-opacity-25 text-white border border-secondary border-opacity-25 small">
                                 Cleanliness: @Model.CleanlinessStatus
                             </span>
@@ -306,6 +318,107 @@
                 </div>
             </div>
 
+            <!-- ====================================================== -->
+            <!-- DISPUTE WORKFLOW & SETTLEMENT CONTROLS -->
+            <!-- ====================================================== -->
+            @if (Model.IsDisputed)
+            {
+                <div class="card border-0 rounded-4 shadow-sm p-4 mb-4" style="background: rgba(239, 68, 68, 0.06); border: 1px solid rgba(239, 68, 68, 0.3) !important;">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="fa-solid fa-scale-balanced fa-lg text-danger"></i>
+                            <h5 class="fw-bold text-white mb-0">Renter Dispute on Damage Deduction</h5>
+                        </div>
+                        <span class="badge @(Model.DisputeStatus == "Resolved" ? "bg-success" : (Model.DisputeStatus == "AcceptedByRenter" ? "bg-info" : "bg-danger")) rounded-pill px-3 py-1.5 fw-semibold">
+                            Status: @Model.DisputeStatus
+                        </span>
+                    </div>
+
+                    <div class="p-3 rounded-3 bg-dark border border-secondary border-opacity-25 mb-3">
+                        <div class="text-secondary small mb-1">Renter's Dispute Statement:</div>
+                        <div class="text-white">"@Model.DisputeReason"</div>
+                        @if (Model.DisputedAt.HasValue)
+                        {
+                            <div class="text-secondary small mt-1">Submitted on @Model.DisputedAt.Value.ToLocalTime().ToString("dd MMM yyyy, hh:mm tt")</div>
+                        }
+                    </div>
+
+                    @if (Model.DisputeImages != null && Model.DisputeImages.Any())
+                    {
+                        <div class="mb-3">
+                            <div class="text-secondary small mb-2 fw-semibold">Renter Rebuttal Evidence Photos:</div>
+                            <div class="d-flex flex-wrap gap-2">
+                                @foreach (var img in Model.DisputeImages)
+                                {
+                                    <a href="@img" target="_blank" class="rounded-3 overflow-hidden border border-secondary border-opacity-25" style="width: 100px; height: 75px; display: inline-block;">
+                                        <img src="@img" style="width: 100%; height: 100%; object-fit: cover;" alt="Dispute evidence" />
+                                    </a>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(Model.DisputeResolutionNotes))
+                    {
+                        <div class="p-3 rounded-3 bg-success bg-opacity-10 border border-success border-opacity-25 text-success small mb-3">
+                            <strong>Resolution Notes:</strong> @Model.DisputeResolutionNotes
+                        </div>
+                    }
+
+                    @if (Model.IsOwner && Model.DisputeStatus == "Open")
+                    {
+                        <div class="mt-3 pt-3 border-top border-secondary border-opacity-25">
+                            <h6 class="fw-bold text-white mb-2">Resolve Renter Dispute</h6>
+                            <form asp-controller="Booking" asp-action="ResolveDispute" method="post">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="bookingId" value="@Model.Booking.Id" />
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label text-muted small">Final Adjusted Damage Deduction (₹)</label>
+                                        <input type="number" name="adjustedDamageDeduction" class="form-control bg-dark border-secondary text-white" value="0" min="0" max="@Model.SecurityDeposit" step="100" required />
+                                        <div class="form-text text-muted small">Set ₹0 to fully waive, or enter mutually agreed amount.</div>
+                                    </div>
+                                    <div class="col-md-5">
+                                        <label class="form-label text-muted small">Resolution Decision & Remarks</label>
+                                        <input type="text" name="resolutionNotes" class="form-control bg-dark border-secondary text-white" placeholder="e.g. Reviewed photos, accepted wear as pre-existing, waived deduction." required />
+                                    </div>
+                                    <div class="col-md-3 d-flex align-items-end">
+                                        <button type="submit" name="decision" value="Resolved" class="btn btn-success w-100 rounded-pill fw-semibold py-2">
+                                            <i class="fa-solid fa-handshake me-1"></i> Resolve Dispute
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    }
+                </div>
+            }
+            else if (!Model.IsOwner && Model.DamageDeduction > 0)
+            {
+                <div class="card border-0 rounded-4 shadow-sm p-4 mb-4" style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25) !important;">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                        <div>
+                            <h5 class="fw-bold text-white mb-1">
+                                <i class="fa-solid fa-circle-question text-warning me-2"></i>Damage Deduction Settlement Action
+                            </h5>
+                            <p class="text-muted small mb-0">A deduction of ₹@Model.DamageDeduction.ToString("N0") was recorded from your escrow deposit. You can accept this settlement or raise a formal dispute with rebuttal photos.</p>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <form asp-controller="Booking" asp-action="AcceptSettlement" method="post" class="d-inline">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="bookingId" value="@Model.Booking.Id" />
+                                <button type="submit" class="btn btn-outline-success rounded-pill px-4 py-2 fw-semibold">
+                                    <i class="fa-solid fa-check me-1"></i> Accept Settlement
+                                </button>
+                            </form>
+                            <button type="button" class="btn btn-danger rounded-pill px-4 py-2 fw-semibold" data-bs-toggle="modal" data-bs-target="#disputeModal">
+                                <i class="fa-solid fa-scale-balanced me-1"></i> Raise Dispute
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+
             <!-- Owner Damage Deduction Adjustment Panel -->
             @if (Model.IsOwner)
             {
@@ -404,3 +517,39 @@
         </div>
     </div>
 </div>
+
+<!-- DISPUTE REBUTTAL MODAL -->
+<div class="modal fade" id="disputeModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4" style="background: #181d29; border: 1px solid rgba(255, 255, 255, 0.1) !important;">
+            <form asp-controller="Booking" asp-action="RaiseDispute" method="post" enctype="multipart/form-data">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="bookingId" value="@Model.Booking.Id" />
+                <div class="modal-header border-secondary border-opacity-25">
+                    <h5 class="modal-title fw-bold text-white">
+                        <i class="fa-solid fa-scale-balanced text-danger me-2"></i>Dispute Damage Deduction
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-secondary small mb-3">Explain why you believe the ₹@Model.DamageDeduction.ToString("N0") damage deduction is inaccurate. You can attach rebuttal photos demonstrating pre-existing condition or operational wear.</p>
+                    <div class="mb-3">
+                        <label class="form-label text-muted small fw-semibold">Explanation / Rebuttal Reason</label>
+                        <textarea name="reason" rows="3" class="form-control bg-dark border-secondary text-white" placeholder="Describe the condition, pre-existing wear, or angle discrepancy..." required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted small fw-semibold">Rebuttal Evidence Photos (Optional)</label>
+                        <input type="file" name="rebuttalPhotos" multiple accept="image/*" class="form-control bg-dark border-secondary text-white" />
+                    </div>
+                </div>
+                <div class="modal-footer border-secondary border-opacity-25">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-3" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger rounded-pill px-4 fw-semibold">
+                        <i class="fa-solid fa-paper-plane me-1"></i> Submit Dispute
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+

@@ -794,6 +794,83 @@ namespace IndiAsset.Controllers
         }
 
         // ======================================================
+        // MAINTENANCE BLACKOUT WINDOWS (CALENDAR BLOCKING)
+        // ======================================================
+        [Authorize]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AddMaintenanceWindow(string assetId, DateTime startDate, DateTime endDate, string? reason)
+        {
+            if (string.IsNullOrEmpty(assetId)) return NotFound();
+
+            var currentUserId = _userManager.GetUserId(User);
+            var asset = await _mongoDbService.Assets
+                .Find(a => a.Id == assetId && !a.IsDeleted)
+                .FirstOrDefaultAsync();
+
+            if (asset == null) return NotFound();
+            if (asset.OwnerId != currentUserId) return Forbid();
+
+            var today = DateTime.UtcNow.Date;
+            if (startDate.Date < today)
+            {
+                TempData["ErrorMessage"] = "Maintenance blackout start date cannot be in the past.";
+                return RedirectToAction(nameof(Details), new { id = assetId });
+            }
+
+            if (endDate.Date <= startDate.Date)
+            {
+                TempData["ErrorMessage"] = "Maintenance blackout end date must be after the start date.";
+                return RedirectToAction(nameof(Details), new { id = assetId });
+            }
+
+            // Check if dates conflict with active/approved leases
+            var isAvailable = await _availabilityService.IsDateRangeAvailableAsync(assetId, startDate.Date, endDate.Date);
+            if (!isAvailable)
+            {
+                TempData["ErrorMessage"] = "Cannot schedule maintenance: The asset is already booked for approved or active leases during these dates.";
+                return RedirectToAction(nameof(Details), new { id = assetId });
+            }
+
+            var window = new MaintenanceWindow
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                StartDate = startDate.Date,
+                EndDate = endDate.Date,
+                Reason = string.IsNullOrWhiteSpace(reason) ? "Scheduled Maintenance / Servicing" : reason.Trim(),
+                CreatedAt = DateTime.UtcNow
+            };
+
+            var update = Builders<Asset>.Update.Push(a => a.MaintenanceWindows, window);
+            await _mongoDbService.Assets.UpdateOneAsync(a => a.Id == assetId, update);
+
+            TempData["SuccessMessage"] = $"Maintenance blackout scheduled for {window.StartDate:dd MMM yyyy} to {window.EndDate:dd MMM yyyy}. Calendar blocked.";
+            return RedirectToAction(nameof(Details), new { id = assetId });
+        }
+
+        [Authorize]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RemoveMaintenanceWindow(string assetId, string windowId)
+        {
+            if (string.IsNullOrEmpty(assetId) || string.IsNullOrEmpty(windowId)) return NotFound();
+
+            var currentUserId = _userManager.GetUserId(User);
+            var asset = await _mongoDbService.Assets
+                .Find(a => a.Id == assetId && !a.IsDeleted)
+                .FirstOrDefaultAsync();
+
+            if (asset == null) return NotFound();
+            if (asset.OwnerId != currentUserId) return Forbid();
+
+            var update = Builders<Asset>.Update.PullFilter(a => a.MaintenanceWindows, w => w.Id == windowId);
+            await _mongoDbService.Assets.UpdateOneAsync(a => a.Id == assetId, update);
+
+            TempData["SuccessMessage"] = "Maintenance blackout dates removed. Calendar updated.";
+            return RedirectToAction(nameof(Details), new { id = assetId });
+        }
+
+        // ======================================================
         // AUTO-SEED SAMPLE ASSETS & REALISTIC OCCUPANCY
         // ======================================================
         private async Task EnsureSeededAsync()

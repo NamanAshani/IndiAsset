@@ -128,9 +128,18 @@ namespace IndiAsset.Services
         /// </summary>
         public async Task<bool> IsDateRangeAvailableAsync(string assetId, DateTime start, DateTime end, string? excludeBookingId = null)
         {
+            // 1. Check if asset is undergoing scheduled maintenance or calendar blackout
+            var asset = await _mongoDbService.Assets.Find(a => a.Id == assetId).FirstOrDefaultAsync();
+            if (asset != null && asset.MaintenanceWindows != null)
+            {
+                var isUnderMaintenance = asset.MaintenanceWindows.Any(m => m.StartDate.Date <= end.Date && m.EndDate.Date >= start.Date);
+                if (isUnderMaintenance) return false;
+            }
+
             var filter = Builders<Booking>.Filter.Eq(b => b.AssetId, assetId) &
                          (Builders<Booking>.Filter.Eq(b => b.Status, BookingStatus.Active) |
                           Builders<Booking>.Filter.Eq(b => b.Status, BookingStatus.Approved) |
+                          Builders<Booking>.Filter.Eq(b => b.Status, BookingStatus.Overdue) |
                           (Builders<Booking>.Filter.Eq(b => b.Status, BookingStatus.Pending) & Builders<Booking>.Filter.Eq(b => b.IsSecurityDepositPaid, true))) &
                          Builders<Booking>.Filter.Lte(b => b.StartDate, end) &
                          Builders<Booking>.Filter.Gte(b => b.EndDate, start);

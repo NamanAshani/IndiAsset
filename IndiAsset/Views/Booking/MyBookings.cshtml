@@ -126,11 +126,19 @@
                             <div class="booking-card h-100 overflow-hidden">
                                 <div class="card-body p-4 d-flex flex-column">
                                     <div class="d-flex align-items-center justify-content-between mb-3">
-                                        <div class="d-flex align-items-center gap-2">
+                                        <div class="d-flex align-items-center gap-2 flex-wrap">
                                             <span class="badge bg-secondary bg-opacity-25 text-white border border-secondary border-opacity-25 rounded-pill px-3 py-1">@item.Category</span>
                                             @if (item.IsNegotiated)
                                             {
                                                 <span class="negotiated-pill"><i class="fa-solid fa-handshake me-1"></i>Negotiated Price</span>
+                                            }
+                                            @if (item.IsDisputed)
+                                            {
+                                                <span class="badge bg-warning text-dark rounded-pill px-2.5 py-1 small"><i class="fa-solid fa-scale-balanced me-1"></i> Dispute @item.DisputeStatus</span>
+                                            }
+                                            @if (item.HasDispatchCheckIn)
+                                            {
+                                                <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25 rounded-pill px-2.5 py-1 small"><i class="fa-solid fa-camera me-1"></i> Baseline Recorded</span>
                                             }
                                         </div>
                                         @switch (item.Status)
@@ -151,6 +159,9 @@
                                             case BookingStatus.Active:
                                                 <span class="badge bg-success rounded-pill px-3 py-1"><i class="fa-solid fa-circle-play me-1"></i> Active On Lease</span>
                                                 break;
+                                            case BookingStatus.Overdue:
+                                                <span class="badge bg-danger rounded-pill px-3 py-1 fw-bold"><i class="fa-solid fa-triangle-exclamation me-1"></i> Overdue (@item.OverdueDays d)</span>
+                                                break;
                                             case BookingStatus.Completed:
                                                 <span class="badge bg-secondary rounded-pill px-3 py-1"><i class="fa-solid fa-circle-check me-1"></i> Returned &amp; Closed</span>
                                                 break;
@@ -162,6 +173,20 @@
                                                 break;
                                         }
                                     </div>
+
+                                    @if (item.Status == BookingStatus.Overdue)
+                                    {
+                                        <div class="alert alert-danger border-0 rounded-3 p-2.5 mb-3 small d-flex align-items-center justify-content-between">
+                                            <div><i class="fa-solid fa-clock-rotate-left me-1"></i> Lease ended on @item.EndDate.ToString("dd MMM"). <strong>Overdue by @item.OverdueDays day(s).</strong></div>
+                                            <div class="text-danger fw-bold">Late fee: ₹@item.LateFee.ToString("N0")</div>
+                                        </div>
+                                    }
+                                    @if (item.RefundedAmount > 0)
+                                    {
+                                        <div class="alert alert-info border-0 rounded-3 p-2 mb-3 small">
+                                            <i class="fa-solid fa-arrow-rotate-left me-1"></i> Refund of ₹@item.RefundedAmount.ToString("N0") processed per cancellation policy.
+                                        </div>
+                                    }
 
                                     <div class="d-flex gap-3 mb-3">
                                         <div class="rounded-3 overflow-hidden bg-dark flex-shrink-0 border border-secondary border-opacity-25" style="width:80px;height:80px;">
@@ -388,7 +413,14 @@
                                             View Asset
                                         </a>
 
-                                        @if (item.Status == BookingStatus.Active && (item.IsSecurityDepositPaid || item.SecurityDeposit <= 0))
+                                        @if (!item.HasDispatchCheckIn && (item.Status == BookingStatus.Approved || item.Status == BookingStatus.Active))
+                                        {
+                                            <a asp-controller="Booking" asp-action="DispatchCheckIn" asp-route-bookingId="@item.BookingId" class="btn btn-outline-info btn-sm rounded-pill px-3 py-2 fw-semibold">
+                                                <i class="fa-solid fa-camera me-1"></i> Dispatch Check-In
+                                            </a>
+                                        }
+
+                                        @if ((item.Status == BookingStatus.Active || item.Status == BookingStatus.Overdue) && (item.IsSecurityDepositPaid || item.SecurityDeposit <= 0))
                                         {
                                             <a asp-controller="Booking" asp-action="ReturnAsset" asp-route-bookingId="@item.BookingId" class="btn btn-warning btn-sm rounded-pill px-3 py-2 fw-semibold text-dark">
                                                 <i class="fa-solid fa-camera me-1"></i> Inspect &amp; Return Asset
@@ -402,9 +434,9 @@
                                             </a>
                                         }
 
-                                        @if (item.Status == BookingStatus.Pending || (item.Status == BookingStatus.Approved && !item.IsSecurityDepositPaid))
+                                        @if (item.Status == BookingStatus.Pending || item.Status == BookingStatus.Approved)
                                         {
-                                            <form method="post" asp-action="Cancel" asp-route-id="@item.BookingId" class="d-inline" onsubmit="return confirm('Cancel this lease request?');">
+                                            <form method="post" asp-action="Cancel" asp-route-id="@item.BookingId" class="d-inline" onsubmit="return confirm('Cancel this lease? Refund will be processed per the cancellation policy.');">
                                                 @Html.AntiForgeryToken()
                                                 <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3 py-2">Cancel</button>
                                             </form>
@@ -442,11 +474,19 @@
                             <div class="booking-card h-100 overflow-hidden">
                                 <div class="card-body p-4 d-flex flex-column">
                                     <div class="d-flex align-items-center justify-content-between mb-3">
-                                        <div class="d-flex align-items-center gap-2">
+                                        <div class="d-flex align-items-center gap-2 flex-wrap">
                                             <span class="badge bg-secondary bg-opacity-25 text-white border border-secondary border-opacity-25 rounded-pill px-3 py-1">@item.Category</span>
                                             @if (item.IsNegotiated)
                                             {
                                                 <span class="negotiated-pill"><i class="fa-solid fa-handshake me-1"></i>Negotiated Price</span>
+                                            }
+                                            @if (item.IsDisputed)
+                                            {
+                                                <span class="badge bg-warning text-dark rounded-pill px-2.5 py-1 small"><i class="fa-solid fa-scale-balanced me-1"></i> Dispute @item.DisputeStatus</span>
+                                            }
+                                            @if (item.HasDispatchCheckIn)
+                                            {
+                                                <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25 rounded-pill px-2.5 py-1 small"><i class="fa-solid fa-camera me-1"></i> Baseline Recorded</span>
                                             }
                                         </div>
                                         @switch (item.Status)
@@ -467,6 +507,9 @@
                                             case BookingStatus.Active:
                                                 <span class="badge bg-success rounded-pill px-3 py-1"><i class="fa-solid fa-circle-play me-1"></i> Occupied / Active</span>
                                                 break;
+                                            case BookingStatus.Overdue:
+                                                <span class="badge bg-danger rounded-pill px-3 py-1 fw-bold"><i class="fa-solid fa-triangle-exclamation me-1"></i> Return Overdue (@item.OverdueDays d)</span>
+                                                break;
                                             case BookingStatus.Completed:
                                                 <span class="badge bg-secondary rounded-pill px-3 py-1"><i class="fa-solid fa-circle-check me-1"></i> Completed &amp; Returned</span>
                                                 break;
@@ -478,6 +521,20 @@
                                                 break;
                                         }
                                     </div>
+
+                                    @if (item.Status == BookingStatus.Overdue)
+                                    {
+                                        <div class="alert alert-danger border-0 rounded-3 p-2.5 mb-3 small d-flex align-items-center justify-content-between">
+                                            <div><i class="fa-solid fa-clock-rotate-left me-1"></i> Return is <strong>overdue by @item.OverdueDays day(s)</strong> (Ended on @item.EndDate.ToString("dd MMM")).</div>
+                                            <div class="text-danger fw-bold">Daily Late Fee Accruing: ₹@item.LateFee.ToString("N0")</div>
+                                        </div>
+                                    }
+                                    @if (item.RefundedAmount > 0)
+                                    {
+                                        <div class="alert alert-info border-0 rounded-3 p-2 mb-3 small">
+                                            <i class="fa-solid fa-arrow-rotate-left me-1"></i> Refund of ₹@item.RefundedAmount.ToString("N0") processed per cancellation policy.
+                                        </div>
+                                    }
 
                                     <div class="d-flex gap-3 mb-3">
                                         <div class="rounded-3 overflow-hidden bg-dark flex-shrink-0 border border-secondary border-opacity-25" style="width:80px;height:80px;">
@@ -710,6 +767,28 @@
                                             <span class="badge bg-secondary bg-opacity-25 text-white-50 border border-secondary border-opacity-25 px-3 py-2 rounded-pill d-inline-flex align-items-center">
                                                 <i class="fa-solid fa-clock me-1 text-warning"></i> Approved &bull; Awaiting Renter Deposit
                                             </span>
+                                        }
+
+                                        @if (!item.HasDispatchCheckIn && (item.Status == BookingStatus.Approved || item.Status == BookingStatus.Active))
+                                        {
+                                            <a asp-controller="Booking" asp-action="DispatchCheckIn" asp-route-bookingId="@item.BookingId" class="btn btn-outline-info btn-sm rounded-pill px-3 py-2 fw-semibold">
+                                                <i class="fa-solid fa-camera me-1"></i> Dispatch Check-In
+                                            </a>
+                                        }
+
+                                        @if (item.Status == BookingStatus.Overdue)
+                                        {
+                                            <span class="badge bg-danger bg-opacity-25 text-danger border border-danger border-opacity-25 px-3 py-2 rounded-pill d-inline-flex align-items-center">
+                                                <i class="fa-solid fa-triangle-exclamation me-1"></i> Overdue (@item.OverdueDays d) &bull; Late Fee: ₹@item.LateFee.ToString("N0")
+                                            </span>
+                                        }
+
+                                        @if (item.Status == BookingStatus.Pending || item.Status == BookingStatus.Approved)
+                                        {
+                                            <form method="post" asp-action="Cancel" asp-route-id="@item.BookingId" class="d-inline" onsubmit="return confirm('Cancel this lease? Full refund of any paid amounts will be issued to renter.');">
+                                                @Html.AntiForgeryToken()
+                                                <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3 py-2">Cancel</button>
+                                            </form>
                                         }
                                     </div>
                                 </div>

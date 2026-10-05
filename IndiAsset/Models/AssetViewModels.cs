@@ -188,5 +188,20 @@ namespace IndiAsset.Models
         public decimal RentPaidAmount { get; set; }
         public DateTime? RentPaidAt { get; set; }
         public decimal UpfrontTotalAmount => TotalRent + SecurityDeposit;
+
+        // Dispatch Check-in tracking
+        public bool HasDispatchCheckIn { get; set; }
+        public List<string> DispatchImageUrls { get; set; } = new();
+
+        // Lifecycle & Overdue tracking
+        public int OverdueDays { get; set; }
+        public decimal LateFee { get; set; }
+
+        // Cancellation & Refund tracking
+        public decimal RefundedAmount { get; set; }
+
+        // Dispute tracking
+        public bool IsDisputed { get; set; }
+        public string? DisputeStatus { get; set; }
     }
 }

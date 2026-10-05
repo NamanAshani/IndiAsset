@@ -64,7 +64,13 @@ namespace IndiAsset.Controllers
                 return RedirectToAction("Index", "Asset");
             }
 
-            bool isSelfLease = (asset.OwnerId == currentUser.Id);
+            // Commercial leasing rule: Asset owners cannot lease their own asset.
+            // Owners should use the dedicated Maintenance / Blackout Window to reserve equipment.
+            if (asset.OwnerId == currentUser.Id)
+            {
+                TempData["ErrorMessage"] = "You cannot lease your own equipment. To reserve dates for maintenance or personal use, please schedule a Maintenance Blackout Window on your asset details page.";
+                return RedirectToAction("Details", "Asset", new { id = model.AssetId });
+            }
 
             // If user specified NumberOfDays and end date wasn't adjusted, synchronize EndDate
             if (model.NumberOfDays > 0)
@@ -89,7 +95,7 @@ namespace IndiAsset.Controllers
                 return RedirectToAction("Details", "Asset", new { id = model.AssetId });
             }
 
-            // Real-time Occupancy & Conflict Check
+            // Real-time Occupancy & Conflict Check (checks both existing bookings and maintenance blackout windows)
             var isAvailable = await _availabilityService.IsDateRangeAvailableAsync(
                 model.AssetId,
                 model.StartDate.Date,
@@ -97,7 +103,7 @@ namespace IndiAsset.Controllers
 
             if (!isAvailable)
             {
-                TempData["ErrorMessage"] = "This asset is currently occupied or already booked during your requested dates. Please choose another date range.";
+                TempData["ErrorMessage"] = "This asset is currently occupied or scheduled for maintenance during your requested dates. Please choose another date range.";
                 return RedirectToAction("Details", "Asset", new { id = model.AssetId });
             }
 
@@ -113,26 +119,24 @@ namespace IndiAsset.Controllers
                 AssetImageUrl = asset.Images.FirstOrDefault(i => i.IsPrimary)?.Url ?? asset.Images.FirstOrDefault()?.Url,
                 RenterId = currentUser.Id,
                 OwnerId = asset.OwnerId,
-                StartDate = isSelfLease ? DateTime.UtcNow.Date : model.StartDate.Date,
-                EndDate = isSelfLease ? DateTime.UtcNow.Date.AddDays(days) : model.EndDate.Date,
+                StartDate = model.StartDate.Date,
+                EndDate = model.EndDate.Date,
                 TotalDays = days,
                 DailyRent = asset.DailyRent,
                 TotalRent = totalRent,
                 OriginalDailyRent = asset.DailyRent,
                 OriginalTotalRent = totalRent,
-                SecurityDeposit = isSelfLease ? 0 : securityDeposit,
-                TotalAmount = isSelfLease ? totalRent : totalAmount,
-                Status = isSelfLease ? BookingStatus.Approved : BookingStatus.Pending,
+                SecurityDeposit = securityDeposit,
+                TotalAmount = totalAmount,
+                Status = BookingStatus.Pending,
                 Notes = model.Notes?.Trim(),
-                IsSecurityDepositPaid = isSelfLease || securityDeposit <= 0,
-                IsPriceAgreed = isSelfLease,
-                PriceAgreedAt = isSelfLease ? DateTime.UtcNow : (DateTime?)null,
-                AgreedDailyRent = isSelfLease ? asset.DailyRent : (decimal?)null,
+                IsSecurityDepositPaid = securityDeposit <= 0,
+                IsPriceAgreed = false,
                 CreatedAt = DateTime.UtcNow
             };
 
             // If user offered a negotiated price when acquiring/requesting the lease
-            if (!isSelfLease && model.ProposeNegotiatedPrice && model.ProposedDailyRent.HasValue && model.ProposedDailyRent.Value > 0)
+            if (model.ProposeNegotiatedPrice && model.ProposedDailyRent.HasValue && model.ProposedDailyRent.Value > 0)
             {
                 booking.ProposedNegotiatedDailyRent = model.ProposedDailyRent.Value;
                 booking.NegotiationStatus = "Offered";
@@ -142,12 +146,6 @@ namespace IndiAsset.Controllers
             }
 
             await _mongoDbService.Bookings.InsertOneAsync(booking);
-
-            if (isSelfLease)
-            {
-                TempData["SuccessMessage"] = $"You have successfully leased your own asset '{asset.Title}' for {days} days ({booking.StartDate:dd MMM yyyy} to {booking.EndDate:dd MMM yyyy})! The asset is now reserved.";
-                return RedirectToAction(nameof(MyBookings), new { tab = "renter" });
-            }
 
             // Notify Asset Owner
             var ownerNotice = (booking.NegotiationStatus == "Offered" && booking.ProposedNegotiatedDailyRent.HasValue)
@@ -168,11 +166,11 @@ namespace IndiAsset.Controllers
 
             if (booking.NegotiationStatus == "Offered")
             {
-                TempData["SuccessMessage"] = $"Lease request created with your proposed rate of ₹{booking.ProposedNegotiatedDailyRent:N0}/day! The price will be agreed upon with the owner before the security deposit is paid and the lease dates begin.";
+                TempData["SuccessMessage"] = $"Lease request created with your proposed rate of ₹{booking.ProposedNegotiatedDailyRent:N0}/day! The price will be agreed upon with the owner before the lease package (rent + security deposit) is paid.";
                 return RedirectToAction(nameof(MyBookings), new { tab = "renter" });
             }
 
-            TempData["SuccessMessage"] = $"Lease request for '{asset.Title}' ({days} days) submitted! The rental price will be agreed upon between both parties before the security deposit is paid and the lease is approved.";
+            TempData["SuccessMessage"] = $"Lease request for '{asset.Title}' ({days} days) submitted! The rental price will be agreed upon between both parties before the lease package is paid and approved.";
             return RedirectToAction(nameof(MyBookings), new { tab = "renter" });
         }
 
@@ -184,6 +182,11 @@ namespace IndiAsset.Controllers
         {
             var currentUserId = _userManager.GetUserId(User);
             if (string.IsNullOrEmpty(currentUserId)) return Challenge();
+
+            // Real-time lifecycle auto-transitions:
+            // 1. Approved leases with paid rent & deposit auto-transition to Active on StartDate
+            // 2. Unreturned Active leases auto-transition to Overdue on EndDate with calculated late fee
+            await CheckAndApplyLifecycleTransitionsAsync(currentUserId);
 
             // Bookings where I am taking on lease (Renter) - Exclude cancelled leases
             var renterBookings = await _mongoDbService.Bookings
@@ -269,7 +272,7 @@ namespace IndiAsset.Controllers
                     AssetImageUrl = b.AssetImageUrl,
                     Category = assetCategoryMap.GetValueOrDefault(b.AssetId, "Equipment"),
                     OtherUserId = b.OwnerId,
-                    OtherUserName = (b.OwnerId == b.RenterId) ? "You (Self-Lease)" : userMap.GetValueOrDefault(b.OwnerId, "Asset Owner"),
+                    OtherUserName = (b.OwnerId == b.RenterId) ? "You" : userMap.GetValueOrDefault(b.OwnerId, "Asset Owner"),
                     StartDate = b.StartDate,
                     EndDate = b.EndDate,
                     DailyRent = b.DailyRent,
@@ -299,7 +302,14 @@ namespace IndiAsset.Controllers
                     SecurityDepositPaidAt = b.SecurityDepositPaidAt,
                     IsRentPaid = b.IsRentPaid || b.Status == BookingStatus.Active || b.Status == BookingStatus.Completed,
                     RentPaidAmount = b.RentPaidAmount > 0 ? b.RentPaidAmount : (b.IsRentPaid || b.Status == BookingStatus.Active || b.Status == BookingStatus.Completed ? b.TotalRent : 0),
-                    RentPaidAt = b.RentPaidAt
+                    RentPaidAt = b.RentPaidAt,
+                    HasDispatchCheckIn = b.DispatchImageUrls != null && b.DispatchImageUrls.Any(),
+                    DispatchImageUrls = b.DispatchImageUrls ?? new List<string>(),
+                    OverdueDays = b.OverdueDays,
+                    LateFee = b.LateFee,
+                    RefundedAmount = b.RefundedAmount,
+                    IsDisputed = b.IsDisputed,
+                    DisputeStatus = b.DisputeStatus
                 }).ToList(),
 
                 AsOwnerBookings = ownerBookings.Select(b => new BookingItemViewModel
@@ -310,7 +320,7 @@ namespace IndiAsset.Controllers
                     AssetImageUrl = b.AssetImageUrl,
                     Category = assetCategoryMap.GetValueOrDefault(b.AssetId, "Equipment"),
                     OtherUserId = b.RenterId,
-                    OtherUserName = (b.OwnerId == b.RenterId) ? "You (Self-Lease)" : userMap.GetValueOrDefault(b.RenterId, "Lease Taker"),
+                    OtherUserName = (b.OwnerId == b.RenterId) ? "You" : userMap.GetValueOrDefault(b.RenterId, "Lease Taker"),
                     StartDate = b.StartDate,
                     EndDate = b.EndDate,
                     DailyRent = b.DailyRent,
@@ -340,7 +350,14 @@ namespace IndiAsset.Controllers
                     SecurityDepositPaidAt = b.SecurityDepositPaidAt,
                     IsRentPaid = b.IsRentPaid || b.Status == BookingStatus.Active || b.Status == BookingStatus.Completed,
                     RentPaidAmount = b.RentPaidAmount > 0 ? b.RentPaidAmount : (b.IsRentPaid || b.Status == BookingStatus.Active || b.Status == BookingStatus.Completed ? b.TotalRent : 0),
-                    RentPaidAt = b.RentPaidAt
+                    RentPaidAt = b.RentPaidAt,
+                    HasDispatchCheckIn = b.DispatchImageUrls != null && b.DispatchImageUrls.Any(),
+                    DispatchImageUrls = b.DispatchImageUrls ?? new List<string>(),
+                    OverdueDays = b.OverdueDays,
+                    LateFee = b.LateFee,
+                    RefundedAmount = b.RefundedAmount,
+                    IsDisputed = b.IsDisputed,
+                    DisputeStatus = b.DisputeStatus
                 }).ToList()
             };
 
@@ -484,18 +501,47 @@ namespace IndiAsset.Controllers
             if (booking == null) return NotFound();
             if (booking.OwnerId != currentUserId) return Forbid();
 
-            var update = Builders<Booking>.Update
+            // Automated Refund: If renter paid any upfront rent or security deposit, issue 100% full refund
+            decimal totalPaid = (booking.IsRentPaid ? (booking.RentPaidAmount > 0 ? booking.RentPaidAmount : booking.TotalRent) : 0) + 
+                                (booking.IsSecurityDepositPaid ? (booking.SecurityDepositPaidAmount > 0 ? booking.SecurityDepositPaidAmount : booking.SecurityDeposit) : 0);
+
+            var updateBuilder = Builders<Booking>.Update
                 .Set(b => b.Status, BookingStatus.Rejected)
                 .Set(b => b.RejectedAt, DateTime.UtcNow);
 
-            await _mongoDbService.Bookings.UpdateOneAsync(b => b.Id == id, update);
+            if (totalPaid > 0)
+            {
+                updateBuilder = updateBuilder
+                    .Set(b => b.RefundedAmount, totalPaid)
+                    .Set(b => b.RefundedAt, DateTime.UtcNow)
+                    .Set(b => b.RefundReason, "Owner declined lease request. 100% full upfront refund issued.")
+                    .Set(b => b.CancellationPolicyApplied, "DeclinedRequestFullRefund");
+
+                var refundPayment = new Payment
+                {
+                    BookingId = booking.Id ?? string.Empty,
+                    PayerId = booking.OwnerId,
+                    PayeeId = booking.RenterId,
+                    RentAmount = booking.IsRentPaid ? (booking.RentPaidAmount > 0 ? booking.RentPaidAmount : booking.TotalRent) : 0,
+                    DepositAmount = booking.IsSecurityDepositPaid ? (booking.SecurityDepositPaidAmount > 0 ? booking.SecurityDepositPaidAmount : booking.SecurityDeposit) : 0,
+                    Status = PaymentStatus.Refunded,
+                    PaymentMethod = "Automated Escrow Refund",
+                    TransactionId = $"ref_rej_{booking.Id}",
+                    CreatedAt = DateTime.UtcNow,
+                    PaidAt = DateTime.UtcNow
+                };
+                await _mongoDbService.Payments.InsertOneAsync(refundPayment);
+            }
+
+            await _mongoDbService.Bookings.UpdateOneAsync(b => b.Id == id, updateBuilder);
 
             // Notify renter
+            var refundNotice = totalPaid > 0 ? $" A 100% refund of ₹{totalPaid:N0} has been automatically processed to your account." : "";
             var notification = new Notification
             {
                 UserId = booking.RenterId,
                 Title = "Lease Request Declined",
-                Message = $"Your lease request for '{booking.AssetTitle}' was declined by the owner.",
+                Message = $"Your lease request for '{booking.AssetTitle}' was declined by the owner.{refundNotice}",
                 Type = "BookingRejected",
                 TargetUrl = Url.Action("MyBookings", "Booking") ?? "/Booking/MyBookings",
                 CreatedAt = DateTime.UtcNow,
@@ -503,7 +549,9 @@ namespace IndiAsset.Controllers
             };
             await _mongoDbService.Notifications.InsertOneAsync(notification);
 
-            TempData["SuccessMessage"] = "Lease request declined.";
+            TempData["SuccessMessage"] = totalPaid > 0
+                ? $"Lease request declined. 100% refund of ₹{totalPaid:N0} automatically issued to the renter."
+                : "Lease request declined.";
             return RedirectToAction(nameof(MyBookings), new { tab = "owner" });
         }
 
@@ -989,7 +1037,7 @@ namespace IndiAsset.Controllers
         }
 
         // ======================================================
-        // CANCEL LEASE
+        // CANCEL LEASE WITH AUTOMATED ESCROW REFUND POLICY
         // ======================================================
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -1005,13 +1053,87 @@ namespace IndiAsset.Controllers
             if (booking == null) return NotFound();
             if (booking.RenterId != currentUserId && booking.OwnerId != currentUserId) return Forbid();
 
+            bool isCancelledByOwner = (booking.OwnerId == currentUserId);
+            decimal totalPaid = (booking.IsRentPaid ? (booking.RentPaidAmount > 0 ? booking.RentPaidAmount : booking.TotalRent) : 0) + 
+                                (booking.IsSecurityDepositPaid ? (booking.SecurityDepositPaidAmount > 0 ? booking.SecurityDepositPaidAmount : booking.SecurityDeposit) : 0);
+
+            decimal refundAmount = 0;
+            string policyName = "StandardCancellation";
+            string refundReason = "";
+
+            if (totalPaid > 0)
+            {
+                if (isCancelledByOwner)
+                {
+                    // Owner cancellation: 100% refund of all paid rent and escrow deposit
+                    refundAmount = totalPaid;
+                    policyName = "OwnerCancellationPolicy";
+                    refundReason = "Owner cancelled lease. 100% full refund issued to renter.";
+                }
+                else
+                {
+                    // Renter cancellation policy:
+                    // 1. >24 hours before lease start: 100% full refund of all amounts
+                    // 2. <24 hours before lease start: 1-day daily rent retained as owner fee, remaining rent + 100% deposit refunded
+                    var daysUntilStart = (booking.StartDate.Date - DateTime.UtcNow.Date).TotalDays;
+                    if (daysUntilStart >= 1)
+                    {
+                        refundAmount = totalPaid;
+                        policyName = "EarlyCancellationFullRefund";
+                        refundReason = "Cancelled >24 hours prior to lease start. 100% full refund issued.";
+                    }
+                    else
+                    {
+                        decimal cancellationFee = Math.Min(booking.DailyRent, booking.TotalRent);
+                        refundAmount = Math.Max(0, totalPaid - cancellationFee);
+                        policyName = "LateCancellationPolicy";
+                        refundReason = $"Late cancellation (<24h). 1-day daily rent (₹{cancellationFee:N0}) deducted as owner fee; remainder ₹{refundAmount:N0} refunded.";
+                    }
+                }
+
+                var refundPayment = new Payment
+                {
+                    BookingId = booking.Id ?? string.Empty,
+                    PayerId = isCancelledByOwner ? booking.OwnerId : booking.RenterId,
+                    PayeeId = isCancelledByOwner ? booking.RenterId : booking.OwnerId,
+                    RentAmount = refundAmount,
+                    DepositAmount = 0,
+                    Status = PaymentStatus.Refunded,
+                    PaymentMethod = "Automated Escrow Refund",
+                    TransactionId = $"ref_cnc_{booking.Id}",
+                    CreatedAt = DateTime.UtcNow,
+                    PaidAt = DateTime.UtcNow
+                };
+                await _mongoDbService.Payments.InsertOneAsync(refundPayment);
+            }
+
             var update = Builders<Booking>.Update
                 .Set(b => b.Status, BookingStatus.Cancelled)
-                .Set(b => b.CancelledAt, DateTime.UtcNow);
+                .Set(b => b.CancelledAt, DateTime.UtcNow)
+                .Set(b => b.RefundedAmount, refundAmount)
+                .Set(b => b.RefundedAt, totalPaid > 0 ? DateTime.UtcNow : (DateTime?)null)
+                .Set(b => b.RefundReason, refundReason)
+                .Set(b => b.CancellationPolicyApplied, policyName);
 
             await _mongoDbService.Bookings.UpdateOneAsync(b => b.Id == id, update);
 
-            TempData["SuccessMessage"] = "Lease cancelled successfully.";
+            var otherUserId = isCancelledByOwner ? booking.RenterId : booking.OwnerId;
+            var refundNote = totalPaid > 0 ? $" Refund processed: ₹{refundAmount:N0} ({policyName})." : "";
+            var notification = new Notification
+            {
+                UserId = otherUserId,
+                Title = "Lease Booking Cancelled",
+                Message = $"Lease booking for '{booking.AssetTitle}' was cancelled by the {(isCancelledByOwner ? "owner" : "renter")}.{refundNote}",
+                Type = "BookingCancelled",
+                TargetUrl = Url.Action("MyBookings", "Booking") ?? "/Booking/MyBookings",
+                CreatedAt = DateTime.UtcNow,
+                IsRead = false
+            };
+            await _mongoDbService.Notifications.InsertOneAsync(notification);
+
+            TempData["SuccessMessage"] = totalPaid > 0 
+                ? $"Lease cancelled successfully. {refundReason}"
+                : "Lease cancelled successfully.";
             return RedirectToAction(nameof(MyBookings));
         }
 
@@ -1053,7 +1175,10 @@ namespace IndiAsset.Controllers
             var owner = await _userManager.FindByIdAsync(booking.OwnerId);
             var renter = await _userManager.FindByIdAsync(booking.RenterId);
 
-            var baselineImages = asset?.Images?.Select(i => i.Url).ToList() ?? new List<string>();
+            var isDispatchBaseline = booking.DispatchImageUrls != null && booking.DispatchImageUrls.Any();
+            var baselineImages = isDispatchBaseline 
+                ? booking.DispatchImageUrls! 
+                : (asset?.Images?.Select(i => i.Url).ToList() ?? new List<string>());
             if (!baselineImages.Any() && !string.IsNullOrEmpty(booking.AssetImageUrl))
             {
                 baselineImages.Add(booking.AssetImageUrl);
@@ -1133,7 +1258,10 @@ namespace IndiAsset.Controllers
                 .Find(a => a.Id == booking.AssetId)
                 .FirstOrDefaultAsync();
 
-            var baselineImages = asset?.Images?.Select(i => i.Url).ToList() ?? new List<string>();
+            var isDispatchBaseline = booking.DispatchImageUrls != null && booking.DispatchImageUrls.Any();
+            var baselineImages = isDispatchBaseline 
+                ? booking.DispatchImageUrls! 
+                : (asset?.Images?.Select(i => i.Url).ToList() ?? new List<string>());
             if (!baselineImages.Any() && !string.IsNullOrEmpty(booking.AssetImageUrl))
             {
                 baselineImages.Add(booking.AssetImageUrl);
@@ -1267,8 +1395,9 @@ namespace IndiAsset.Controllers
             }
 
             decimal damageDeduction = comparisonResult.SuggestedDamageDeduction;
-            // The Security Deposit is an escrow guarantee: refunded in full (100%) unless damage is detected!
-            decimal finalRefundAmount = Math.Max(0, escrowDepositForInspection - damageDeduction);
+            decimal lateFeeDeduction = booking.LateFee;
+            // The Security Deposit is an escrow guarantee: refunded in full (100%) unless damage or late return deductions apply
+            decimal finalRefundAmount = Math.Max(0, escrowDepositForInspection - damageDeduction - lateFeeDeduction);
 
             // 4. Create Payment record in MongoDB if any settlement payment was processed at return
             if (amountToPay > 0)
@@ -1297,10 +1426,13 @@ namespace IndiAsset.Controllers
                 BookingId = booking.Id ?? string.Empty,
                 OwnerId = booking.OwnerId,
                 RenterId = booking.RenterId,
-                ConditionBefore = "Certified Baseline Pre-Lease Condition (Original Photos)",
+                ConditionBefore = isDispatchBaseline
+                    ? "Certified Handover Dispatch Baseline (Pickup Photos)"
+                    : "Certified Baseline Pre-Lease Condition (Catalog Photos)",
                 ConditionAfter = !string.IsNullOrWhiteSpace(model.ConditionNotes)
                     ? model.ConditionNotes.Trim()
                     : "Asset returned in operational condition with verified photos.",
+                DispatchImageUrls = booking.DispatchImageUrls ?? new List<string>(),
                 ReturnImageUrls = savedReturnImageUrls,
                 QualityScore = comparisonResult.QualityScore,
                 DiscrepancyPercentage = comparisonResult.DiscrepancyPercentage,
@@ -1309,12 +1441,14 @@ namespace IndiAsset.Controllers
                 FunctionalStatus = comparisonResult.FunctionalStatus,
                 ComparisonSummary = comparisonResult.SummaryText,
                 DamageDeduction = damageDeduction,
-                OtherDeduction = 0,
+                OtherDeduction = lateFeeDeduction,
                 RefundAmount = finalRefundAmount,
                 InspectionNotes = $"Automated visual comparison: {comparisonResult.QualityScore}% condition match ({comparisonResult.ConditionCategory}). " +
                     (damageDeduction > 0 
-                        ? $"Damage detected! Deduction of ₹{damageDeduction:N0} cut from escrow deposit. Net refund: ₹{finalRefundAmount:N0}." 
-                        : $"Normal operational wear within tolerance. Zero damage deduction. 100% escrow refund of ₹{finalRefundAmount:N0} approved."),
+                        ? $"Damage detected! Deduction of ₹{damageDeduction:N0} cut from escrow deposit. " 
+                        : $"Normal operational wear within tolerance. Zero damage deduction. ") +
+                    (lateFeeDeduction > 0 ? $"Overdue late fee of ₹{lateFeeDeduction:N0} ({booking.OverdueDays} days). " : "") +
+                    $"Net escrow refund approved: ₹{finalRefundAmount:N0}.",
                 IsInspected = true,
                 IsSettled = true,
                 ReturnedAt = DateTime.UtcNow,
@@ -1409,7 +1543,14 @@ namespace IndiAsset.Controllers
                 .SortByDescending(p => p.CreatedAt)
                 .FirstOrDefaultAsync();
 
-            var baselineImages = asset.Images?.Select(i => i.Url).ToList() ?? new List<string>();
+            var isDispatchBaseline = (leaseReturn.DispatchImageUrls != null && leaseReturn.DispatchImageUrls.Any()) || 
+                                     (booking.DispatchImageUrls != null && booking.DispatchImageUrls.Any());
+            var baselineImages = (leaseReturn.DispatchImageUrls != null && leaseReturn.DispatchImageUrls.Any())
+                ? leaseReturn.DispatchImageUrls
+                : ((booking.DispatchImageUrls != null && booking.DispatchImageUrls.Any())
+                    ? booking.DispatchImageUrls
+                    : (asset.Images?.Select(i => i.Url).ToList() ?? new List<string>()));
+
             if (!baselineImages.Any() && !string.IsNullOrEmpty(booking.AssetImageUrl))
             {
                 baselineImages.Add(booking.AssetImageUrl);
@@ -1441,10 +1582,279 @@ namespace IndiAsset.Controllers
                 FullDepositRefundRecommended = leaseReturn.DamageDeduction == 0,
                 SecurityDeposit = booking.SecurityDepositPaidAmount > 0 ? booking.SecurityDepositPaidAmount : booking.SecurityDeposit,
                 DamageDeduction = leaseReturn.DamageDeduction,
-                RecommendedRefundAmount = leaseReturn.RefundAmount
+                RecommendedRefundAmount = leaseReturn.RefundAmount,
+                IsBaselineFromDispatch = isDispatchBaseline,
+                DispatchedAt = booking.DispatchedAt,
+                DispatchNotes = booking.DispatchNotes,
+                IsDisputed = leaseReturn.IsDisputed || booking.IsDisputed,
+                DisputeReason = leaseReturn.DisputeReason ?? booking.DisputeReason,
+                DisputedAt = leaseReturn.DisputedAt ?? booking.DisputedAt,
+                DisputeImages = leaseReturn.DisputeImageUrls ?? new List<string>(),
+                DisputeStatus = leaseReturn.DisputeStatus ?? booking.DisputeStatus,
+                DisputeResolutionNotes = leaseReturn.DisputeResolutionNotes
             };
 
             return View(viewModel);
+        }
+
+        // ======================================================
+        // PRE-LEASE DISPATCH CHECK-IN (EQUIPMENT HANDOVER BASELINE)
+        // ======================================================
+        [HttpGet]
+        public async Task<IActionResult> DispatchCheckIn(string bookingId)
+        {
+            if (string.IsNullOrEmpty(bookingId)) return NotFound();
+
+            var currentUserId = _userManager.GetUserId(User);
+            var booking = await _mongoDbService.Bookings
+                .Find(b => b.Id == bookingId)
+                .FirstOrDefaultAsync();
+
+            if (booking == null) return NotFound();
+            if (booking.OwnerId != currentUserId && booking.RenterId != currentUserId) return Forbid();
+
+            var asset = await _mongoDbService.Assets
+                .Find(a => a.Id == booking.AssetId)
+                .FirstOrDefaultAsync();
+
+            var renter = await _userManager.FindByIdAsync(booking.RenterId);
+
+            var vm = new DispatchCheckInViewModel
+            {
+                BookingId = booking.Id ?? string.Empty,
+                AssetId = booking.AssetId,
+                AssetTitle = booking.AssetTitle ?? asset?.Title ?? "Equipment",
+                AssetCategory = asset?.Category ?? "Equipment",
+                PrimaryImageUrl = booking.AssetImageUrl ?? asset?.Images?.FirstOrDefault()?.Url,
+                RenterName = renter?.FullName ?? renter?.Email ?? "Renter",
+                StartDate = booking.StartDate,
+                EndDate = booking.EndDate,
+                TotalDays = booking.TotalDays > 0 ? booking.TotalDays : Math.Max(1, (int)(booking.EndDate.Date - booking.StartDate.Date).TotalDays),
+                TotalRent = booking.TotalRent,
+                SecurityDeposit = booking.SecurityDeposit,
+                DispatchNotes = booking.DispatchNotes
+            };
+
+            return View(vm);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DispatchCheckIn(DispatchCheckInViewModel model)
+        {
+            if (string.IsNullOrEmpty(model.BookingId)) return NotFound();
+
+            var currentUserId = _userManager.GetUserId(User);
+            var booking = await _mongoDbService.Bookings
+                .Find(b => b.Id == model.BookingId)
+                .FirstOrDefaultAsync();
+
+            if (booking == null) return NotFound();
+            if (booking.OwnerId != currentUserId && booking.RenterId != currentUserId) return Forbid();
+
+            if (model.DispatchPhotos == null || !model.DispatchPhotos.Any())
+            {
+                ModelState.AddModelError("DispatchPhotos", "Please upload at least 1 dispatch handover photo.");
+                return View(model);
+            }
+
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp", ".avif", ".gif" };
+            var uploadedUrls = new List<string>();
+
+            foreach (var file in model.DispatchPhotos)
+            {
+                if (file.Length > 0 && file.Length < 25 * 1024 * 1024)
+                {
+                    var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+                    if (allowedExtensions.Contains(ext))
+                    {
+                        using var stream = file.OpenReadStream();
+                        var fileId = await _gridFsService.UploadFileAsync(stream, file.FileName, file.ContentType);
+                        uploadedUrls.Add($"/image/{fileId}");
+                    }
+                }
+            }
+
+            if (!uploadedUrls.Any())
+            {
+                ModelState.AddModelError("DispatchPhotos", "Valid image files (.jpg, .png, .webp) are required.");
+                return View(model);
+            }
+
+            var update = Builders<Booking>.Update
+                .Set(b => b.DispatchImageUrls, uploadedUrls)
+                .Set(b => b.DispatchedAt, DateTime.UtcNow)
+                .Set(b => b.DispatchNotes, model.DispatchNotes?.Trim());
+
+            // If lease is approved and start date has arrived, dispatch activates the lease
+            if (booking.Status == BookingStatus.Approved && booking.StartDate.Date <= DateTime.UtcNow.Date)
+            {
+                update = update.Set(b => b.Status, BookingStatus.Active);
+            }
+
+            await _mongoDbService.Bookings.UpdateOneAsync(b => b.Id == model.BookingId, update);
+
+            var otherUserId = (booking.OwnerId == currentUserId) ? booking.RenterId : booking.OwnerId;
+            var notification = new Notification
+            {
+                UserId = otherUserId,
+                Title = "Pre-Lease Dispatch Check-In Recorded 📸📦",
+                Message = $"Handover baseline photos for '{booking.AssetTitle}' have been recorded and saved for return inspection comparison.",
+                Type = "DispatchCheckIn",
+                TargetUrl = Url.Action("MyBookings", "Booking") ?? "/Booking/MyBookings",
+                CreatedAt = DateTime.UtcNow,
+                IsRead = false
+            };
+            await _mongoDbService.Notifications.InsertOneAsync(notification);
+
+            TempData["SuccessMessage"] = "Dispatch check-in completed! Handover baseline photos recorded successfully.";
+            return RedirectToAction(nameof(MyBookings));
+        }
+
+        // ======================================================
+        // RENTER DISPUTE ACTIONS (REBUTTAL FLOW)
+        // ======================================================
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RaiseDispute(string bookingId, string reason, List<IFormFile>? rebuttalPhotos)
+        {
+            if (string.IsNullOrEmpty(bookingId) || string.IsNullOrWhiteSpace(reason))
+            {
+                TempData["ErrorMessage"] = "A dispute explanation is required.";
+                return RedirectToAction(nameof(InspectionReview), new { bookingId });
+            }
+
+            var currentUserId = _userManager.GetUserId(User);
+            var booking = await _mongoDbService.Bookings.Find(b => b.Id == bookingId).FirstOrDefaultAsync();
+            if (booking == null) return NotFound();
+            if (booking.RenterId != currentUserId) return Forbid();
+
+            var leaseReturn = await _mongoDbService.LeaseReturns.Find(r => r.BookingId == bookingId).FirstOrDefaultAsync();
+            if (leaseReturn == null) return NotFound();
+
+            var rebuttalUrls = new List<string>();
+            if (rebuttalPhotos != null && rebuttalPhotos.Any())
+            {
+                var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp", ".avif", ".gif" };
+                foreach (var file in rebuttalPhotos)
+                {
+                    if (file.Length > 0 && file.Length < 25 * 1024 * 1024)
+                    {
+                        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+                        if (allowedExtensions.Contains(ext))
+                        {
+                            using var stream = file.OpenReadStream();
+                            var fileId = await _gridFsService.UploadFileAsync(stream, file.FileName, file.ContentType);
+                            rebuttalUrls.Add($"/image/{fileId}");
+                        }
+                    }
+                }
+            }
+
+            var updateReturn = Builders<LeaseReturn>.Update
+                .Set(r => r.IsDisputed, true)
+                .Set(r => r.DisputeReason, reason.Trim())
+                .Set(r => r.DisputedAt, DateTime.UtcNow)
+                .Set(r => r.DisputeImageUrls, rebuttalUrls)
+                .Set(r => r.DisputeStatus, "Open");
+
+            var updateBooking = Builders<Booking>.Update
+                .Set(b => b.IsDisputed, true)
+                .Set(b => b.DisputeReason, reason.Trim())
+                .Set(b => b.DisputedAt, DateTime.UtcNow)
+                .Set(b => b.DisputeStatus, "Open");
+
+            await _mongoDbService.LeaseReturns.UpdateOneAsync(r => r.BookingId == bookingId, updateReturn);
+            await _mongoDbService.Bookings.UpdateOneAsync(b => b.Id == bookingId, updateBooking);
+
+            var notification = new Notification
+            {
+                UserId = booking.OwnerId,
+                Title = "Damage Deduction Disputed by Renter ⚖️",
+                Message = $"The renter has disputed the damage deduction of ₹{leaseReturn.DamageDeduction:N0} for '{booking.AssetTitle}': \"{reason.Trim()}\"",
+                Type = "DisputeRaised",
+                TargetUrl = Url.Action("InspectionReview", "Booking", new { bookingId }) ?? $"/Booking/InspectionReview?bookingId={bookingId}",
+                CreatedAt = DateTime.UtcNow,
+                IsRead = false
+            };
+            await _mongoDbService.Notifications.InsertOneAsync(notification);
+
+            TempData["SuccessMessage"] = "Dispute raised successfully. The asset owner has been notified to review your rebuttal.";
+            return RedirectToAction(nameof(InspectionReview), new { bookingId });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AcceptSettlement(string bookingId)
+        {
+            if (string.IsNullOrEmpty(bookingId)) return NotFound();
+
+            var currentUserId = _userManager.GetUserId(User);
+            var booking = await _mongoDbService.Bookings.Find(b => b.Id == bookingId).FirstOrDefaultAsync();
+            if (booking == null) return NotFound();
+            if (booking.RenterId != currentUserId) return Forbid();
+
+            var updateReturn = Builders<LeaseReturn>.Update
+                .Set(r => r.DisputeStatus, "AcceptedByRenter")
+                .Set(r => r.DisputeResolvedAt, DateTime.UtcNow)
+                .Set(r => r.IsSettled, true);
+
+            var updateBooking = Builders<Booking>.Update
+                .Set(b => b.DisputeStatus, "AcceptedByRenter");
+
+            await _mongoDbService.LeaseReturns.UpdateOneAsync(r => r.BookingId == bookingId, updateReturn);
+            await _mongoDbService.Bookings.UpdateOneAsync(b => b.Id == bookingId, updateBooking);
+
+            TempData["SuccessMessage"] = "Settlement accepted. Return inspection report finalized.";
+            return RedirectToAction(nameof(InspectionReview), new { bookingId });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ResolveDispute(string bookingId, string decision, decimal adjustedDamageDeduction, string? resolutionNotes)
+        {
+            if (string.IsNullOrEmpty(bookingId)) return NotFound();
+
+            var currentUserId = _userManager.GetUserId(User);
+            var booking = await _mongoDbService.Bookings.Find(b => b.Id == bookingId).FirstOrDefaultAsync();
+            if (booking == null) return NotFound();
+            if (booking.OwnerId != currentUserId) return Forbid();
+
+            var leaseReturn = await _mongoDbService.LeaseReturns.Find(r => r.BookingId == bookingId).FirstOrDefaultAsync();
+            if (leaseReturn == null) return NotFound();
+
+            decimal deposit = booking.SecurityDepositPaidAmount > 0 ? booking.SecurityDepositPaidAmount : booking.SecurityDeposit;
+            decimal newDeduction = Math.Clamp(adjustedDamageDeduction, 0, deposit);
+            decimal newRefund = Math.Max(0, deposit - newDeduction - leaseReturn.OtherDeduction);
+
+            var updateReturn = Builders<LeaseReturn>.Update
+                .Set(r => r.DamageDeduction, newDeduction)
+                .Set(r => r.RefundAmount, newRefund)
+                .Set(r => r.DisputeStatus, "Resolved")
+                .Set(r => r.DisputeResolvedAt, DateTime.UtcNow)
+                .Set(r => r.DisputeResolutionNotes, resolutionNotes?.Trim() ?? $"Owner adjusted deduction to ₹{newDeduction:N0} ({decision})")
+                .Set(r => r.IsSettled, true);
+
+            var updateBooking = Builders<Booking>.Update
+                .Set(b => b.DisputeStatus, "Resolved");
+
+            await _mongoDbService.LeaseReturns.UpdateOneAsync(r => r.BookingId == bookingId, updateReturn);
+            await _mongoDbService.Bookings.UpdateOneAsync(b => b.Id == bookingId, updateBooking);
+
+            var notification = new Notification
+            {
+                UserId = booking.RenterId,
+                Title = "Dispute Resolved by Owner 🤝",
+                Message = $"The owner resolved your dispute for '{booking.AssetTitle}'. Adjusted damage deduction: ₹{newDeduction:N0}. Net refund: ₹{newRefund:N0}.",
+                Type = "DisputeResolved",
+                TargetUrl = Url.Action("InspectionReview", "Booking", new { bookingId }) ?? $"/Booking/InspectionReview?bookingId={bookingId}",
+                CreatedAt = DateTime.UtcNow,
+                IsRead = false
+            };
+            await _mongoDbService.Notifications.InsertOneAsync(notification);
+
+            TempData["SuccessMessage"] = $"Dispute resolved! Adjusted damage deduction set to ₹{newDeduction:N0}. Net refund: ₹{newRefund:N0}.";
+            return RedirectToAction(nameof(InspectionReview), new { bookingId });
         }
 
         // ======================================================
@@ -1472,7 +1882,7 @@ namespace IndiAsset.Controllers
 
             decimal depositPaid = booking.SecurityDepositPaidAmount > 0 ? booking.SecurityDepositPaidAmount : booking.SecurityDeposit;
             decimal clampedDeduction = Math.Clamp(damageDeduction, 0, depositPaid);
-            decimal refund = Math.Max(0, depositPaid - clampedDeduction);
+            decimal refund = Math.Max(0, depositPaid - clampedDeduction - leaseReturn.OtherDeduction);
 
             var update = Builders<LeaseReturn>.Update
                 .Set(lr => lr.DamageDeduction, clampedDeduction)
@@ -1484,6 +1894,70 @@ namespace IndiAsset.Controllers
 
             TempData["SuccessMessage"] = $"Damage deduction successfully updated to ₹{clampedDeduction:N0}. Net refund to renter: ₹{refund:N0}.";
             return RedirectToAction(nameof(InspectionReview), new { bookingId });
+        }
+
+        // ======================================================
+        // LIFECYCLE AUTO-TRANSITIONS HELPER
+        // ======================================================
+        private async Task CheckAndApplyLifecycleTransitionsAsync(string? userId = null)
+        {
+            try
+            {
+                var today = DateTime.UtcNow.Date;
+                var filterBuilder = Builders<Booking>.Filter;
+                var baseFilter = filterBuilder.In(b => b.Status, new[] { BookingStatus.Approved, BookingStatus.Active, BookingStatus.Overdue });
+                if (!string.IsNullOrEmpty(userId))
+                {
+                    baseFilter &= filterBuilder.Or(
+                        filterBuilder.Eq(b => b.RenterId, userId),
+                        filterBuilder.Eq(b => b.OwnerId, userId)
+                    );
+                }
+
+                var bookings = await _mongoDbService.Bookings.Find(baseFilter).ToListAsync();
+
+                foreach (var b in bookings)
+                {
+                    // Transition 1: Approved -> Active once StartDate has arrived and upfront lease package is paid
+                    if (b.Status == BookingStatus.Approved && b.StartDate.Date <= today)
+                    {
+                        var isDepositPaid = b.IsSecurityDepositPaid || b.SecurityDeposit <= 0;
+                        var isRentPaid = b.IsRentPaid;
+                        if (isDepositPaid && isRentPaid)
+                        {
+                            var updateToActive = Builders<Booking>.Update
+                                .Set(x => x.Status, BookingStatus.Active);
+                            await _mongoDbService.Bookings.UpdateOneAsync(x => x.Id == b.Id, updateToActive);
+                            b.Status = BookingStatus.Active;
+                        }
+                    }
+
+                    // Transition 2: Active / Overdue -> Overdue if EndDate has passed without return inspection
+                    if ((b.Status == BookingStatus.Active || b.Status == BookingStatus.Overdue) && b.EndDate.Date < today)
+                    {
+                        var returnExists = await _mongoDbService.LeaseReturns.Find(r => r.BookingId == b.Id).AnyAsync();
+                        if (!returnExists)
+                        {
+                            var overdueDays = Math.Max(1, (int)(today - b.EndDate.Date).TotalDays);
+                            var lateFee = overdueDays * (b.DailyRent * 1.5m);
+
+                            var updateOverdue = Builders<Booking>.Update
+                                .Set(x => x.Status, BookingStatus.Overdue)
+                                .Set(x => x.OverdueDays, overdueDays)
+                                .Set(x => x.LateFee, lateFee);
+
+                            await _mongoDbService.Bookings.UpdateOneAsync(x => x.Id == b.Id, updateOverdue);
+                            b.Status = BookingStatus.Overdue;
+                            b.OverdueDays = overdueDays;
+                            b.LateFee = lateFee;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing lifecycle auto-transitions");
+            }
         }
 
         // ======================================================

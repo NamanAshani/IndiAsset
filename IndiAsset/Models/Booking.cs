@@ -86,6 +86,29 @@ namespace IndiAsset.Models
         [BsonRepresentation(BsonType.Decimal128)]
         public decimal UpfrontTotalPaidAmount { get; set; }
 
+        // Pre-Lease Dispatch Check-in (Fresh Handover Baseline Photos)
+        public List<string> DispatchImageUrls { get; set; } = new();
+        public DateTime? DispatchedAt { get; set; }
+        public string? DispatchNotes { get; set; }
+
+        // Cancellation & Escrow Refund tracking
+        [BsonRepresentation(BsonType.Decimal128)]
+        public decimal RefundedAmount { get; set; }
+        public DateTime? RefundedAt { get; set; }
+        public string? RefundReason { get; set; }
+        public string? CancellationPolicyApplied { get; set; }
+
+        // Lifecycle & Overdue tracking
+        public int OverdueDays { get; set; }
+        [BsonRepresentation(BsonType.Decimal128)]
+        public decimal LateFee { get; set; }
+
+        // Renter Dispute on Damage Deduction tracking
+        public bool IsDisputed { get; set; } = false;
+        public string? DisputeReason { get; set; }
+        public DateTime? DisputedAt { get; set; }
+        public string? DisputeStatus { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public DateTime? ApprovedAt { get; set; }

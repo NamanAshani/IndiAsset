@@ -21,6 +21,9 @@ namespace IndiAsset.Models
 
         public List<string> ReturnImageUrls { get; set; } = new();
 
+        // Fresh Pre-Lease Dispatch Handover Baseline Images
+        public List<string> DispatchImageUrls { get; set; } = new();
+
         [BsonRepresentation(BsonType.Decimal128)]
         public decimal DamageDeduction { get; set; }
 
@@ -49,6 +52,15 @@ namespace IndiAsset.Models
 
         public bool IsInspected { get; set; } = false;
         public bool IsSettled { get; set; } = false;
+
+        // Renter Dispute Workflow on Damage Deductions
+        public bool IsDisputed { get; set; } = false;
+        public string? DisputeReason { get; set; }
+        public DateTime? DisputedAt { get; set; }
+        public List<string> DisputeImageUrls { get; set; } = new();
+        public string? DisputeStatus { get; set; } = "None"; // "None", "PendingReview", "Resolved", "AcceptedByRenter"
+        public DateTime? DisputeResolvedAt { get; set; }
+        public string? DisputeResolutionNotes { get; set; }
 
         public DateTime? ReturnedAt { get; set; }
         public DateTime? SettledAt { get; set; }
